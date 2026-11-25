@@ -7,15 +7,20 @@ import type { AuthContext } from "@/lib/auth";
 import { logoutAction, stopImpersonationAction } from "@/app/actions/auth";
 import { fullName } from "@/lib/format";
 import { ThemeControls } from "@/components/theme-controls";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { I18nProvider } from "@/components/i18n-provider";
+import type { Locale } from "@/lib/i18n/config";
 import type { Messages } from "@/lib/i18n/messages/en";
 
 export function AppShell({
   ctx,
+  locale,
   t,
   unreadCount = 0,
   children,
 }: {
   ctx: AuthContext;
+  locale: Locale;
   t: Messages;
   unreadCount?: number;
   children: React.ReactNode;
@@ -87,6 +92,7 @@ export function AppShell({
   const visible = links.filter((l) => l.show);
 
   return (
+    <I18nProvider locale={locale} t={t}>
     <div>
       {isImpersonating && (
         <div className="impersonation-bar">
@@ -190,6 +196,11 @@ export function AppShell({
                   </span>
                 ) : null}
               </Link>
+              <LanguageSwitcher
+                locale={locale}
+                redirectTo={pathname || "/dashboard"}
+                label={t.nav.language}
+              />
               <ThemeControls />
               <div className="hidden sm:block text-right text-sm pl-2 border-l border-[var(--line)] ml-1">
                 <div className="font-semibold leading-tight">
@@ -209,5 +220,6 @@ export function AppShell({
         </div>
       </div>
     </div>
+    </I18nProvider>
   );
 }

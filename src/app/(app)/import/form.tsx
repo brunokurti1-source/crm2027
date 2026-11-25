@@ -7,8 +7,10 @@ import {
   ImportPreviewResult,
   ImportResult,
 } from "@/app/actions/import";
+import { useT } from "@/components/i18n-provider";
 
 export function ImportForm() {
+  const t = useT();
   const [preview, setPreview] = useState<ImportPreviewResult | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [ack, setAck] = useState(false);
@@ -27,7 +29,7 @@ export function ImportForm() {
         onSubmit={(e) => e.preventDefault()}
       >
         <div className="field">
-          <label>Skedari (.xlsx / .csv)</label>
+          <label>{t.importPage.file}</label>
           <input name="file" type="file" accept=".xlsx,.xls,.csv" required />
         </div>
         <div className="flex flex-wrap gap-2">
@@ -45,7 +47,7 @@ export function ImportForm() {
               });
             }}
           >
-            {pending ? "Duke kontrolluar…" : "Parapamje & dublikata"}
+            {pending ? t.importPage.checking : t.importPage.preview}
           </button>
           <button
             type="button"
@@ -60,7 +62,7 @@ export function ImportForm() {
               });
             }}
           >
-            {pending ? "Duke importuar…" : "Importo"}
+            {pending ? t.importPage.importing : t.importPage.submit}
           </button>
         </div>
         {hasDupes ? (
@@ -70,19 +72,19 @@ export function ImportForm() {
               checked={ack}
               onChange={(e) => setAck(e.target.checked)}
             />
-            I kam kontrolluar dublikatat — lejo krijimin edhe kur ka përputhje
+            {t.importPage.ackDuplicates}
           </label>
         ) : null}
       </form>
 
       {preview ? (
         <div className="card p-4 space-y-3 text-sm">
-          <h2 className="font-semibold">Parapamje importi</h2>
+          <h2 className="font-semibold">{t.importPage.previewTitle}</h2>
           {preview.errors.length > 0 && (
             <ul className="space-y-1 text-[var(--danger)]">
               {preview.errors.slice(0, 20).map((e, i) => (
                 <li key={i}>
-                  Rreshti {e.row}: {e.message}
+                  {t.importPage.row} {e.row}: {e.message}
                 </li>
               ))}
             </ul>
@@ -91,12 +93,12 @@ export function ImportForm() {
             <table className="table text-sm">
               <thead>
                 <tr>
-                  <th>Rreshti</th>
-                  <th>ID</th>
-                  <th>Emri</th>
-                  <th>Veprimi</th>
-                  <th>Dublikata</th>
-                  <th>Shënim</th>
+                  <th>{t.importPage.row}</th>
+                  <th>{t.importPage.id}</th>
+                  <th>{t.importPage.name}</th>
+                  <th>{t.importPage.action}</th>
+                  <th>{t.importPage.duplicates}</th>
+                  <th>{t.importPage.note}</th>
                 </tr>
               </thead>
               <tbody>
@@ -113,7 +115,7 @@ export function ImportForm() {
                         ? r.duplicates
                             .map((d) => d.clientIdNumber)
                             .join(", ")
-                        : "—"}
+                        : t.common.none}
                     </td>
                     <td className="muted">{r.message}</td>
                   </tr>
@@ -127,16 +129,16 @@ export function ImportForm() {
       {result ? (
         <div className="card p-4 space-y-2 text-sm">
           <p>
-            Krijuar: <strong>{result.created}</strong> · Përditësuar:{" "}
-            <strong>{result.updated}</strong> · Anashkaluar:{" "}
-            <strong>{result.skipped}</strong> · Gabime:{" "}
-            <strong>{result.errors.length}</strong>
+            {t.importPage.created}: <strong>{result.created}</strong> ·{" "}
+            {t.importPage.updated}: <strong>{result.updated}</strong> ·{" "}
+            {t.importPage.skipped}: <strong>{result.skipped}</strong> ·{" "}
+            {t.importPage.errors}: <strong>{result.errors.length}</strong>
           </p>
           {result.errors.length > 0 && (
             <ul className="space-y-1 text-[var(--danger)]">
               {result.errors.slice(0, 30).map((e, i) => (
                 <li key={i}>
-                  Rreshti {e.row}: {e.message}
+                  {t.importPage.row} {e.row}: {e.message}
                 </li>
               ))}
             </ul>
