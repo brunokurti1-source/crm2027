@@ -9,7 +9,7 @@ export default async function AuthenticatedLayout({
   children: React.ReactNode;
 }) {
   const ctx = await requireAuth();
-  const { locale, t } = await getDictionary();
+  const { t } = await getDictionary();
 
   let unreadCount = 0;
   try {
@@ -21,7 +21,7 @@ export default async function AuthenticatedLayout({
   }
 
   return (
-    <AppShell ctx={ctx} locale={locale} t={t} unreadCount={unreadCount}>
+    <AppShell ctx={ctx} t={t} unreadCount={unreadCount}>
       {children}
     </AppShell>
   );

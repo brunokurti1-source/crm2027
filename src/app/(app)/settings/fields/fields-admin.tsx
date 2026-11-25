@@ -65,7 +65,7 @@ export function CustomFieldsAdmin({ fields }: { fields: FieldRow[] }) {
         </div>
         <div className="field md:col-span-2">
           <label>Opsione SELECT (ndarë me presje)</label>
-          <input name="options" placeholder="sq, en, it" />
+          <input name="options" placeholder="option1, option2" />
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="required" /> E detyrueshme

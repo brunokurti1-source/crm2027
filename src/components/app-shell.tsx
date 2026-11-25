@@ -6,20 +6,16 @@ import { useState } from "react";
 import type { AuthContext } from "@/lib/auth";
 import { logoutAction, stopImpersonationAction } from "@/app/actions/auth";
 import { fullName } from "@/lib/format";
-import { LanguageSwitcher } from "@/components/language-switcher";
 import { ThemeControls } from "@/components/theme-controls";
-import type { Locale } from "@/lib/i18n/config";
 import type { Messages } from "@/lib/i18n/messages/en";
 
 export function AppShell({
   ctx,
-  locale,
   t,
   unreadCount = 0,
   children,
 }: {
   ctx: AuthContext;
-  locale: Locale;
   t: Messages;
   unreadCount?: number;
   children: React.ReactNode;
@@ -194,11 +190,6 @@ export function AppShell({
                   </span>
                 ) : null}
               </Link>
-              <LanguageSwitcher
-                locale={locale}
-                redirectTo={pathname || "/dashboard"}
-                label={t.nav.language}
-              />
               <ThemeControls />
               <div className="hidden sm:block text-right text-sm pl-2 border-l border-[var(--line)] ml-1">
                 <div className="font-semibold leading-tight">

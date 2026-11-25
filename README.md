@@ -1,6 +1,6 @@
 # CRM 2027
 
-Secure CRM MVP for administrators, managers (Menaxher), and agents (Agjent). Albanian UI labels; English code.
+Secure CRM MVP for administrators, managers, and agents. English UI.
 
 ## Tech choice (greenfield)
 
@@ -160,7 +160,7 @@ src/lib/         auth, permissions, db, audit
 
 ## Languages
 
-The UI supports Albanian, English, Italian, Spanish, and German via the language selector in the top bar (stored in a cookie).
+The UI is English only.
 
 ## Backup & restore (admin)
 

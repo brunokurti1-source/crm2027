@@ -2,23 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { loginAction } from "@/app/actions/auth";
-import { LanguageSwitcher } from "@/components/language-switcher";
 import { ThemeControls } from "@/components/theme-controls";
-import type { Locale } from "@/lib/i18n/config";
 import type { Messages } from "@/lib/i18n/messages/en";
 
-export function LoginForm({ locale, t }: { locale: Locale; t: Messages }) {
+export function LoginForm({ t }: { t: Messages }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   return (
     <div className="min-h-screen flex flex-col">
       <div className="flex justify-end gap-2 p-4">
-        <LanguageSwitcher
-          locale={locale}
-          redirectTo="/login"
-          label={t.nav.language}
-        />
         <ThemeControls />
       </div>
       <div className="flex-1 flex items-center justify-center px-4 pb-16">
