@@ -177,7 +177,7 @@ export async function deleteStatusAction(
     await logAudit({
       actorId: ctx.realUser.id,
       action: "STATUS_REPLACED_ON_CLIENTS",
-      details: `${clientCount} klientë: ${status.code} → ${replacement.code}`,
+      details: `${clientCount} clients: ${status.code} → ${replacement.code}`,
     });
   }
 

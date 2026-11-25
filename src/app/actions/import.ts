@@ -274,7 +274,7 @@ export async function importClientsAction(
           clientId: existingById.id,
           actorId: ctx.realUser.id,
           action: "CLIENT_IMPORTED_UPDATE",
-          description: "Përditësuar nga import Excel",
+          description: "Updated from Excel import",
         });
         updated++;
         continue;
@@ -329,7 +329,7 @@ export async function importClientsAction(
   await logAudit({
     actorId: ctx.realUser.id,
     action: "CLIENT_IMPORT",
-    details: `Import: ${created} krijuar, ${updated} përditësuar, ${skipped} anashkaluar, ${errors.length} gabime`,
+    details: `Import: ${created} created, ${updated} updated, ${skipped} skipped, ${errors.length} errors`,
   });
 
   revalidatePath("/clients");

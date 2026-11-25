@@ -113,7 +113,7 @@ export async function createClientAction(formData: FormData) {
     clientId: client.id,
     actorId: ctx.realUser.id,
     action: "CLIENT_CREATED",
-    description: `Klienti ${client.firstName} ${client.lastName} u krijua`,
+    description: `Client ${client.firstName} ${client.lastName} created`,
   });
 
   const { pushClientOutbound } = await import("@/lib/integrations");
@@ -244,7 +244,7 @@ export async function updateClientAction(clientId: string, formData: FormData) {
         clientId,
         actorId: ctx.realUser.id,
         action: "STATUS_CHANGED",
-        description: `Statusi: ${existing.status} → ${data.status}`,
+        description: `Status: ${existing.status} → ${data.status}`,
         metadata: { from: existing.status, to: data.status },
       });
     } else {
@@ -271,7 +271,7 @@ export async function updateClientAction(clientId: string, formData: FormData) {
         data: {
           userId,
           title: "Client updated",
-          body: `${existing.clientIdNumber} u përditësua nga ${ctx.realUser.firstName} ${ctx.realUser.lastName}. Rifreskoni para se të ruani.`,
+          body: `${existing.clientIdNumber} was updated by ${ctx.realUser.firstName} ${ctx.realUser.lastName}. Refresh before saving.`,
           kind: "SYSTEM",
           href: `/clients/${clientId}`,
         },
@@ -436,7 +436,7 @@ export async function adjustCreditsAction(
       clientId,
       actorId: ctx.realUser.id,
       action: amount > 0 ? "CREDITS_ADDED" : "CREDITS_REMOVED",
-      description: `${amount > 0 ? "Shtuar" : "Hequr"} ${Math.abs(amount)} kredi. ${previous} → ${next}. ${reason}`,
+      description: `${amount > 0 ? "Added" : "Removed"} ${Math.abs(amount)} credits. ${previous} → ${next}. ${reason}`,
       metadata: { amount, previous, next, reason },
     });
 
@@ -465,7 +465,7 @@ export async function addCommentAction(clientId: string, formData: FormData) {
       clientId,
       actorId: ctx.realUser.id,
       action: "COMMENT_ADDED",
-      description: `Koment: ${body.slice(0, 120)}`,
+      description: `Comment: ${body.slice(0, 120)}`,
     });
     await prisma.client.update({
       where: { id: clientId },
@@ -499,7 +499,7 @@ export async function deleteCommentAction(commentId: string, clientId: string) {
     await recordSoftDelete({
       entityType: "COMMENT",
       entityId: commentId,
-      label: `Koment për klient ${clientId}`,
+      label: `Comment for client ${clientId}`,
       payload: comment,
       deletedById: ctx.realUser.id,
     });
@@ -539,7 +539,7 @@ export async function assignClientAction(formData: FormData) {
       clientId,
       actorId: ctx.realUser.id,
       action: "CLIENT_ASSIGNED",
-      description: `Caktim: agjent=${agentId ?? "—"}, menaxher=${managerId ?? "—"}`,
+      description: `Assignment: agent=${agentId ?? "—"}, manager=${managerId ?? "—"}`,
     });
     revalidatePath(`/clients/${clientId}`);
     revalidatePath("/clients");

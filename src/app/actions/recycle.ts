@@ -74,7 +74,7 @@ export async function purgeSoftDeleteAction(formData: FormData): Promise<void> {
   await logAudit({
     actorId: ctx.realUser.id,
     action: "SOFT_PURGE",
-    details: `Fshirje e përhershme ${item.entityType} ${item.label}`,
+    details: `Permanent delete ${item.entityType} ${item.label}`,
   });
 
   revalidatePath("/recycle-bin");

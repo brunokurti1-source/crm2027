@@ -51,7 +51,7 @@ export async function createMeetingAction(formData: FormData) {
     clientId,
     actorId: ctx.realUser.id,
     action: "MEETING_SCHEDULED",
-    description: `Takim i planifikuar më ${scheduledAt.toISOString()}`,
+    description: `Meeting scheduled at ${scheduledAt.toISOString()}`,
   });
 
   await prisma.client.update({

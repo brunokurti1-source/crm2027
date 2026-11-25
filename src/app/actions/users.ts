@@ -155,7 +155,7 @@ export async function updateUserAction(userId: string, formData: FormData) {
     actorId: ctx.realUser.id,
     targetUserId: userId,
     action: "USER_UPDATED",
-    details: `Përditësua ${target.email}`,
+    details: `Updated ${target.email}`,
   });
 
   revalidatePath("/users");

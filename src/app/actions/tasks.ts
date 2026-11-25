@@ -48,14 +48,14 @@ export async function createTaskAction(formData: FormData): Promise<void> {
       clientId,
       actorId: ctx.realUser.id,
       action: "TASK_CREATED",
-      description: `Detyrë: ${title}`,
+      description: `Task: ${title}`,
     });
   }
 
   await prisma.notification.create({
     data: {
       userId: ctx.user.id,
-      title: "Detyrë e re",
+      title: "New task",
       body: title,
       kind: "TASK",
       href: "/tasks",

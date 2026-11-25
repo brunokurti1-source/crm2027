@@ -75,7 +75,7 @@ export async function bulkAssignClientsAction(formData: FormData): Promise<{
   await logAudit({
     actorId: ctx.realUser.id,
     action: "CLIENT_BULK_ASSIGN",
-    details: `Caktim masiv: ${assigned}/${ids.length} klientë. Gabime: ${errors.length}`,
+    details: `Bulk assign: ${assigned}/${ids.length} clients. Errors: ${errors.length}`,
   });
 
   revalidatePath("/clients");

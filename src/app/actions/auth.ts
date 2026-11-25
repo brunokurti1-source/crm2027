@@ -41,7 +41,7 @@ export async function loginAction(formData: FormData) {
   await logAudit({
     actorId: user.id,
     action: "LOGIN",
-    details: `Hyrje e suksesshme për ${user.email}`,
+    details: `Successful sign-in for ${user.email}`,
   });
 
   redirect("/dashboard");
@@ -54,7 +54,7 @@ export async function logoutAction() {
     await logAudit({
       actorId: ctx.realUser.id,
       action: "LOGOUT",
-      details: `Dalje për ${ctx.realUser.email}`,
+      details: `Sign-out for ${ctx.realUser.email}`,
     });
   }
   session.destroy();
@@ -125,7 +125,7 @@ export async function stopImpersonationAction(): Promise<void> {
       where: { id: auditId },
       data: {
         endedAt,
-        details: `${ctx.realUser.email} ndaloi impersonimin e llogarisë ${targetId ?? "—"} (përfundoi ${endedAt.toISOString()})`,
+        details: `${ctx.realUser.email} stopped impersonating ${targetId ?? "—"} (ended ${endedAt.toISOString()})`,
       },
     });
   }

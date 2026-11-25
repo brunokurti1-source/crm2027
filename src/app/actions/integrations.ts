@@ -208,7 +208,7 @@ export async function updateIntegrationAction(
   await logAudit({
     actorId: ctx.realUser.id,
     action: "INTEGRATION_UPDATED",
-    details: `Integrimi ${id}: menaxher=${managerId ?? "—"}, agjentë=${agentIds.length}`,
+    details: `Integration ${id}: manager=${managerId ?? "—"}, agents=${agentIds.length}`,
   });
 
   revalidatePath("/settings/integrations");
