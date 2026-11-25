@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { actionT } from "@/lib/i18n/action-t";
 
 function canManageStatuses(ctx: Awaited<ReturnType<typeof requireAuth>>) {
   return ctx.user.role === "ADMIN" || ctx.user.permissions.manageStatuses;
@@ -149,8 +150,12 @@ export async function deleteStatusAction(
     };
   }
 
-  if (confirm !== "PO" && confirm !== "YES") {
-    return { error: "Shkruani PO për të konfirmuar fshirjen." };
+  {
+    const t = await actionT();
+    const ok = new Set(["YES", "PO", t.common.confirmWord, t.common.confirmWord.toUpperCase()]);
+    if (!ok.has(confirm.trim()) && confirm.trim().toUpperCase() !== "YES") {
+      return { error: t.errors.confirmYes };
+    }
   }
 
   if (clientCount > 0) {

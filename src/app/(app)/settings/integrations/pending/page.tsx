@@ -1,12 +1,14 @@
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { PendingAssignForm } from "./pending-form";
 
 export default async function PendingIntegrationsPage() {
   const ctx = await requireAuth();
+  const { t } = await getDictionary();
   if (ctx.user.role !== "ADMIN") {
-    return <p className="flash-err">Vetëm administratori.</p>;
+    return <p className="flash-err">{t.pendingPage.adminOnly}</p>;
   }
 
   const [items, managers, agents] = await Promise.all([
@@ -27,11 +29,8 @@ export default async function PendingIntegrationsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="page-title">Lista e pritjes (API)</h1>
-        <p className="page-sub">
-          Të dhëna që nuk u caktuan te asnjë menaxher/grup. Nuk shfaqen te
-          agjentët derisa t&apos;i caktoni.
-        </p>
+        <h1 className="page-title">{t.pendingPage.title}</h1>
+        <p className="page-sub">{t.pendingPage.subtitle}</p>
       </div>
 
       <div className="space-y-3">
@@ -40,8 +39,8 @@ export default async function PendingIntegrationsPage() {
             <div className="flex flex-wrap justify-between gap-2">
               <div>
                 <div className="font-semibold">
-                  {item.integration?.name || "Pa integrim"} ·{" "}
-                  {item.externalId || "pa ID"}
+                  {item.integration?.name || t.pendingPage.noIntegration} ·{" "}
+                  {item.externalId || t.pendingPage.noExternalId}
                 </div>
                 <div className="text-sm muted">{item.reason}</div>
                 <div className="text-xs muted">
@@ -67,7 +66,7 @@ export default async function PendingIntegrationsPage() {
           </div>
         ))}
         {!items.length ? (
-          <p className="muted">Nuk ka artikuj në pritje.</p>
+          <p className="muted">{t.pendingPage.empty}</p>
         ) : null}
       </div>
     </div>

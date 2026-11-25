@@ -10,6 +10,7 @@ import {
   runDueSyncsAction,
 } from "@/app/actions/integrations";
 import { CRM_MAPPABLE_FIELDS } from "@/lib/integration-constants";
+import { useT } from "@/components/i18n-provider";
 
 const defaultMappings = JSON.stringify(
   CRM_MAPPABLE_FIELDS.filter((f) => f !== "externalId").map((f) => ({
@@ -21,7 +22,9 @@ const defaultMappings = JSON.stringify(
 );
 
 export function RunDueSyncsButton() {
+  const t = useT();
   const [msg, setMsg] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
   const [pending, startTransition] = useTransition();
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -31,19 +34,28 @@ export function RunDueSyncsButton() {
         disabled={pending}
         onClick={() => {
           setMsg(null);
+          setOk(false);
           startTransition(async () => {
             const res = await runDueSyncsAction();
-            if (res.error) setMsg(res.error);
-            else
+            if (res.error) {
+              setMsg(res.error);
+              setOk(false);
+            } else {
               setMsg(
-                `Kontrolluar ${res.checked ?? 0}, ekzekutuar ${res.ran ?? 0}.`,
+                t.integrationsPage.dueSyncResult
+                  .replace("{checked}", String(res.checked ?? 0))
+                  .replace("{ran}", String(res.ran ?? 0)),
               );
+              setOk(true);
+            }
           });
         }}
       >
-        {pending ? "Duke sinkronizuar…" : "Ekzekuto intervalet e matura"}
+        {pending ? t.integrationsPage.syncing : t.common.runDueSyncs}
       </button>
-      {msg ? <span className="text-sm muted">{msg}</span> : null}
+      {msg ? (
+        <span className={`text-sm ${ok ? "flash-ok" : "muted"}`}>{msg}</span>
+      ) : null}
     </div>
   );
 }
@@ -55,7 +67,9 @@ export function CreateIntegrationForm({
   managers: { id: string; label: string }[];
   agents: { id: string; label: string; managerId: string | null }[];
 }) {
+  const t = useT();
   const [msg, setMsg] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
   const [inboundKey, setInboundKey] = useState<string | null>(null);
   const [managerFilter, setManagerFilter] = useState("");
   const [pending, startTransition] = useTransition();
@@ -69,68 +83,74 @@ export function CreateIntegrationForm({
       className="card p-4 space-y-3"
       action={(fd) => {
         setMsg(null);
+        setOk(false);
         setInboundKey(null);
         startTransition(async () => {
           const res = await createIntegrationAction(fd);
-          if (res.error) setMsg(res.error);
-          else {
-            setMsg("Integrimi u krijua.");
+          if (res.error) {
+            setMsg(res.error);
+            setOk(false);
+          } else {
+            setMsg(t.integrationsPage.created);
+            setOk(true);
             if (res.inboundKey) setInboundKey(res.inboundKey);
           }
         });
       }}
     >
-      <h2 className="font-semibold">Shto integrim</h2>
+      <h2 className="font-semibold">{t.common.addIntegration}</h2>
       <div className="grid gap-3 md:grid-cols-3">
         <div className="field">
-          <label>Emri *</label>
+          <label>
+            {t.common.name} {t.common.required}
+          </label>
           <input name="name" required placeholder="Website leads" />
         </div>
         <div className="field">
-          <label>URL e API-së / webhook</label>
+          <label>{t.common.url}</label>
           <input name="baseUrl" placeholder="https://partner.example/api/leads" />
         </div>
         <div className="field">
-          <label>Lloji i lidhjes</label>
+          <label>{t.common.connection}</label>
           <select name="connectionType" defaultValue="BOTH">
-            <option value="WEBHOOK">Webhook</option>
-            <option value="REST_POLL">REST (poll)</option>
-            <option value="BOTH">Të dyja</option>
+            <option value="WEBHOOK">{t.integrationsPage.webhook}</option>
+            <option value="REST_POLL">{t.integrationsPage.restPoll}</option>
+            <option value="BOTH">{t.common.both}</option>
           </select>
         </div>
         <div className="field">
-          <label>Drejtimi</label>
+          <label>{t.common.direction}</label>
           <select name="direction" defaultValue="BIDIRECTIONAL">
-            <option value="INBOUND">Drejt CRM-së</option>
-            <option value="OUTBOUND">Nga CRM-ja</option>
-            <option value="BIDIRECTIONAL">Të dy drejtimet</option>
+            <option value="INBOUND">{t.common.inbound}</option>
+            <option value="OUTBOUND">{t.common.outbound}</option>
+            <option value="BIDIRECTIONAL">{t.common.bidirectional}</option>
           </select>
         </div>
         <div className="field">
-          <label>Autentikimi</label>
+          <label>{t.common.auth}</label>
           <select name="authType" defaultValue="API_KEY">
-            <option value="API_KEY">API key</option>
-            <option value="BEARER">Bearer</option>
-            <option value="OAUTH2">OAuth2</option>
-            <option value="NONE">Asnjë</option>
+            <option value="API_KEY">{t.common.apiKey}</option>
+            <option value="BEARER">{t.common.bearer}</option>
+            <option value="OAUTH2">{t.integrationsPage.oauth2}</option>
+            <option value="NONE">{t.common.noneAuth}</option>
           </select>
         </div>
         <div className="field">
-          <label>Konfliktet</label>
+          <label>{t.common.conflictPolicy}</label>
           <select name="conflictPolicy" defaultValue="NEWEST_WINS">
-            <option value="NEWEST_WINS">Më i riu fiton</option>
-            <option value="CRM_WINS">CRM fiton</option>
-            <option value="REMOTE_WINS">Sistemi tjetër fiton</option>
+            <option value="NEWEST_WINS">{t.common.newestWins}</option>
+            <option value="CRM_WINS">{t.common.crmWins}</option>
+            <option value="REMOTE_WINS">{t.common.remoteWins}</option>
           </select>
         </div>
         <div className="field">
-          <label>Menaxheri (grupi)</label>
+          <label>{t.common.managerGroup}</label>
           <select
             name="managerId"
             defaultValue=""
             onChange={(e) => setManagerFilter(e.target.value)}
           >
-            <option value="">— zgjidhni —</option>
+            <option value="">{t.common.choose}</option>
             {managers.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.label}
@@ -139,9 +159,9 @@ export function CreateIntegrationForm({
           </select>
         </div>
         <div className="field">
-          <label>Agjenti i parazgjedhur</label>
+          <label>{t.common.defaultAgent}</label>
           <select name="defaultAgentId" defaultValue="">
-            <option value="">—</option>
+            <option value="">{t.common.none}</option>
             {filteredAgents.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.label}
@@ -150,35 +170,35 @@ export function CreateIntegrationForm({
           </select>
         </div>
         <div className="field">
-          <label>Intervali (minuta)</label>
+          <label>{t.common.intervalMinutes}</label>
           <input name="syncIntervalMinutes" type="number" min={0} placeholder="15" />
         </div>
         <div className="field">
-          <label>API key e partnerit (e enkriptuar)</label>
+          <label>{t.integrationsPage.partnerApiKey}</label>
           <input name="apiKey" type="password" autoComplete="off" />
         </div>
         <div className="field">
-          <label>Bearer token</label>
+          <label>{t.common.bearer}</label>
           <input name="bearerToken" type="password" autoComplete="off" />
         </div>
         <div className="field">
-          <label>OAuth access token</label>
+          <label>{t.integrationsPage.oauthAccessToken}</label>
           <input name="oauthAccessToken" type="password" autoComplete="off" />
         </div>
         <div className="field">
-          <label>OAuth refresh token</label>
+          <label>{t.integrationsPage.oauthRefreshToken}</label>
           <input name="oauthRefreshToken" type="password" autoComplete="off" />
         </div>
         <div className="field">
-          <label>OAuth client ID</label>
+          <label>{t.common.oauthClientId}</label>
           <input name="oauthClientId" autoComplete="off" />
         </div>
         <div className="field">
-          <label>OAuth client secret</label>
+          <label>{t.common.oauthClientSecret}</label>
           <input name="oauthClientSecret" type="password" autoComplete="off" />
         </div>
         <div className="field md:col-span-3">
-          <label>Agjentët e lejuar (grupi)</label>
+          <label>{t.common.allowedAgents}</label>
           <div className="flex flex-wrap gap-3 text-sm">
             {filteredAgents.map((a) => (
               <label key={a.id} className="flex items-center gap-1">
@@ -187,12 +207,12 @@ export function CreateIntegrationForm({
               </label>
             ))}
             {!filteredAgents.length ? (
-              <span className="muted">Zgjidhni menaxherin për të parë agjentët.</span>
+              <span className="muted">{t.common.pickManagerForAgents}</span>
             ) : null}
           </div>
         </div>
         <div className="field md:col-span-3">
-          <label>Hartëzimi i fushave (JSON)</label>
+          <label>{t.common.fieldMapping}</label>
           <textarea
             name="fieldMappings"
             rows={6}
@@ -203,16 +223,16 @@ export function CreateIntegrationForm({
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="syncEnabled" />
-        Aktivizo sinkronizimin
+        {t.common.syncEnabled}
       </label>
       <button className="btn btn-primary" disabled={pending}>
-        {pending ? "Duke ruajtur…" : "Krijo"}
+        {pending ? t.common.saving : t.common.create}
       </button>
-      {msg ? <div className={msg.includes("u krijua") ? "flash-ok" : "flash-err"}>{msg}</div> : null}
+      {msg ? <div className={ok ? "flash-ok" : "flash-err"}>{msg}</div> : null}
       {inboundKey ? (
         <div className="flash-ok text-sm">
-          Çelësi hyrës (shfaqet vetëm tani): <code>{inboundKey}</code>
-          <div className="muted">Ruajeni jashtë — nuk shfaqet më në UI.</div>
+          {t.common.inboundKeyOnce} <code>{inboundKey}</code>
+          <div className="muted">{t.common.saveKeyOutside}</div>
         </div>
       ) : null}
     </form>
@@ -247,7 +267,9 @@ export function IntegrationDetailActions({
   agents: { id: string; label: string; managerId: string | null }[];
   isAdmin: boolean;
 }) {
+  const t = useT();
   const [msg, setMsg] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
   const [inboundKey, setInboundKey] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const allowed = (() => {
@@ -261,11 +283,12 @@ export function IntegrationDetailActions({
   if (!isAdmin) {
     return (
       <div className="card p-4 text-sm muted">
-        Vetëm administratori mund të ndryshojë konfigurimin. Ju shihni
-        aktivitetin e grupit tuaj më poshtë.
+        {t.integrationsPage.adminOnlyEdit}
       </div>
     );
   }
+
+  const confirmLabel = `${t.common.confirm} (${t.common.confirmWord})`;
 
   return (
     <div className="space-y-4">
@@ -273,65 +296,69 @@ export function IntegrationDetailActions({
         className="card p-4 space-y-3"
         action={(fd) => {
           setMsg(null);
+          setOk(false);
           setInboundKey(null);
           startTransition(async () => {
             const res = await updateIntegrationAction(fd);
-            if (res.error) setMsg(res.error);
-            else {
-              setMsg("U ruajt.");
+            if (res.error) {
+              setMsg(res.error);
+              setOk(false);
+            } else {
+              setMsg(t.common.saved);
+              setOk(true);
               if (res.inboundKey) setInboundKey(res.inboundKey);
             }
           });
         }}
       >
         <input type="hidden" name="id" value={integration.id} />
-        <h2 className="font-semibold">Konfigurimi</h2>
+        <h2 className="font-semibold">{t.integrationsPage.configuration}</h2>
         <div className="grid gap-3 md:grid-cols-3">
           <div className="field">
-            <label>Emri</label>
+            <label>{t.common.name}</label>
             <input name="name" defaultValue={integration.name} required />
           </div>
           <div className="field">
-            <label>URL</label>
+            <label>{t.common.url}</label>
             <input name="baseUrl" defaultValue={integration.baseUrl || ""} />
           </div>
           <div className="field">
-            <label>Lloji</label>
+            <label>{t.common.type}</label>
             <select name="connectionType" defaultValue={integration.connectionType}>
-              <option value="WEBHOOK">Webhook</option>
+              <option value="WEBHOOK">{t.integrationsPage.webhook}</option>
               <option value="REST_POLL">REST</option>
-              <option value="BOTH">Të dyja</option>
+              <option value="BOTH">{t.common.both}</option>
             </select>
           </div>
           <div className="field">
-            <label>Drejtimi</label>
+            <label>{t.common.direction}</label>
             <select name="direction" defaultValue={integration.direction}>
-              <option value="INBOUND">Drejt CRM-së</option>
-              <option value="OUTBOUND">Nga CRM-ja</option>
-              <option value="BIDIRECTIONAL">Të dyja</option>
+              <option value="INBOUND">{t.common.inbound}</option>
+              <option value="OUTBOUND">{t.common.outbound}</option>
+              <option value="BIDIRECTIONAL">{t.common.both}</option>
             </select>
           </div>
           <div className="field">
-            <label>Auth</label>
+            <label>{t.common.auth}</label>
             <select name="authType" defaultValue={integration.authType}>
-              <option value="API_KEY">API key</option>
-              <option value="BEARER">Bearer</option>
-              <option value="OAUTH2">OAuth2</option>
-              <option value="NONE">Asnjë</option>
+              <option value="API_KEY">{t.common.apiKey}</option>
+              <option value="BEARER">{t.common.bearer}</option>
+              <option value="OAUTH2">{t.integrationsPage.oauth2}</option>
+              <option value="NONE">{t.common.noneAuth}</option>
             </select>
           </div>
           <div className="field">
-            <label>Konfliktet</label>
+            <label>{t.common.conflictPolicy}</label>
             <select name="conflictPolicy" defaultValue={integration.conflictPolicy}>
-              <option value="NEWEST_WINS">Më i riu</option>
-              <option value="CRM_WINS">CRM</option>
-              <option value="REMOTE_WINS">Remote</option>
+              <option value="NEWEST_WINS">{t.common.newestWins}</option>
+              <option value="CRM_WINS">{t.common.crmWins}</option>
+              <option value="REMOTE_WINS">{t.common.remoteWins}</option>
             </select>
           </div>
           <div className="field">
-            <label>Menaxheri</label>
+            <label>{t.common.manager}</label>
             <select name="managerId" defaultValue={integration.managerId || ""}>
-              <option value="">—</option>
+              <option value="">{t.common.none}</option>
               {managers.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.label}
@@ -340,12 +367,12 @@ export function IntegrationDetailActions({
             </select>
           </div>
           <div className="field">
-            <label>Agjenti default</label>
+            <label>{t.common.defaultAgent}</label>
             <select
               name="defaultAgentId"
               defaultValue={integration.defaultAgentId || ""}
             >
-              <option value="">—</option>
+              <option value="">{t.common.none}</option>
               {agents.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.label}
@@ -354,7 +381,7 @@ export function IntegrationDetailActions({
             </select>
           </div>
           <div className="field">
-            <label>Intervali (min)</label>
+            <label>{t.common.intervalMinutes}</label>
             <input
               name="syncIntervalMinutes"
               type="number"
@@ -362,43 +389,43 @@ export function IntegrationDetailActions({
             />
           </div>
           <div className="field">
-            <label>API key e re (opsionale)</label>
+            <label>{t.integrationsPage.newApiKeyOptional}</label>
             <input name="apiKey" type="password" autoComplete="off" />
           </div>
           <div className="field">
-            <label>Bearer i ri (opsional)</label>
+            <label>{t.integrationsPage.newBearerOptional}</label>
             <input name="bearerToken" type="password" autoComplete="off" />
           </div>
           <div className="field">
-            <label>OAuth access (opsional)</label>
+            <label>{t.integrationsPage.oauthAccessOptional}</label>
             <input name="oauthAccessToken" type="password" autoComplete="off" />
           </div>
           <div className="field">
-            <label>OAuth refresh (opsional)</label>
+            <label>{t.integrationsPage.oauthRefreshOptional}</label>
             <input name="oauthRefreshToken" type="password" autoComplete="off" />
           </div>
           <div className="field">
-            <label>OAuth client ID</label>
+            <label>{t.common.oauthClientId}</label>
             <input name="oauthClientId" autoComplete="off" />
           </div>
           <div className="field">
-            <label>OAuth client secret</label>
+            <label>{t.common.oauthClientSecret}</label>
             <input name="oauthClientSecret" type="password" autoComplete="off" />
           </div>
           <div className="field">
-            <label>Çelësi hyrës</label>
+            <label>{t.common.inboundKey}</label>
             <input
               readOnly
               value={
                 integration.inboundKeyPrefix
                   ? `${integration.inboundKeyPrefix}…`
-                  : "—"
+                  : t.common.none
               }
             />
           </div>
         </div>
         <div className="field">
-          <label>Agjentët e lejuar</label>
+          <label>{t.common.allowedAgents}</label>
           <div className="flex flex-wrap gap-3 text-sm">
             {agents.map((a) => (
               <label key={a.id} className="flex items-center gap-1">
@@ -414,7 +441,7 @@ export function IntegrationDetailActions({
           </div>
         </div>
         <div className="field">
-          <label>Hartëzimi</label>
+          <label>{t.integrationsPage.mapping}</label>
           <textarea
             name="fieldMappings"
             rows={6}
@@ -429,19 +456,19 @@ export function IntegrationDetailActions({
               name="syncEnabled"
               defaultChecked={integration.syncEnabled}
             />
-            Sinkronizimi aktiv
+            {t.integrationsPage.syncActive}
           </label>
           <label className="flex items-center gap-2">
             <input type="checkbox" name="active" defaultChecked={integration.active} />
-            Integrimi aktiv
+            {t.common.integrationActive}
           </label>
           <label className="flex items-center gap-2">
             <input type="checkbox" name="rotateInboundKey" />
-            Rirotullo çelësin hyrës
+            {t.common.rotateInboundKey}
           </label>
         </div>
         <button className="btn btn-primary" disabled={pending}>
-          Ruaj
+          {t.common.save}
         </button>
       </form>
 
@@ -451,12 +478,23 @@ export function IntegrationDetailActions({
             fd.set("id", integration.id);
             startTransition(async () => {
               const res = await testIntegrationAction(fd);
-              setMsg(res.error || `Lidhja OK (HTTP ${res.status})`);
+              if (res.error) {
+                setMsg(res.error);
+                setOk(false);
+              } else {
+                setMsg(
+                  t.integrationsPage.connectionOkHttp.replace(
+                    "{status}",
+                    String(res.status ?? ""),
+                  ),
+                );
+                setOk(true);
+              }
             });
           }}
         >
           <button className="btn btn-secondary" disabled={pending}>
-            Provo lidhjen
+            {t.common.testConnection}
           </button>
         </form>
         <form
@@ -464,12 +502,18 @@ export function IntegrationDetailActions({
             fd.set("id", integration.id);
             startTransition(async () => {
               const res = await runSyncNowAction(fd);
-              setMsg(res.error || "Sinkronizimi përfundoi.");
+              if (res.error) {
+                setMsg(res.error);
+                setOk(false);
+              } else {
+                setMsg(t.common.syncDone);
+                setOk(true);
+              }
             });
           }}
         >
           <button className="btn btn-secondary" disabled={pending}>
-            Sinkronizo tani
+            {t.common.sync}
           </button>
         </form>
         <form
@@ -478,12 +522,18 @@ export function IntegrationDetailActions({
             fd.set("retry", "1");
             startTransition(async () => {
               const res = await runSyncNowAction(fd);
-              setMsg(res.error || "Riprovimi përfundoi.");
+              if (res.error) {
+                setMsg(res.error);
+                setOk(false);
+              } else {
+                setMsg(t.common.retryDone);
+                setOk(true);
+              }
             });
           }}
         >
           <button className="btn btn-secondary" disabled={pending}>
-            Riprovo dështimet
+            {t.common.retryFailures}
           </button>
         </form>
       </div>
@@ -493,29 +543,35 @@ export function IntegrationDetailActions({
         action={(fd) => {
           startTransition(async () => {
             const res = await deleteIntegrationAction(fd);
-            setMsg(res.error || "U fshi.");
+            if (res.error) {
+              setMsg(res.error);
+              setOk(false);
+            } else {
+              setMsg(t.common.deletedOk);
+              setOk(true);
+            }
           });
         }}
       >
-        <h3 className="font-semibold text-[var(--danger)]">Fshi integrimin</h3>
+        <h3 className="font-semibold text-[var(--danger)]">
+          {t.common.deleteIntegration}
+        </h3>
         <input type="hidden" name="id" value={integration.id} />
         <div className="field">
-          <label>Konfirmim (PO)</label>
-          <input name="confirm" required placeholder="PO" />
+          <label>{confirmLabel}</label>
+          <input name="confirm" required placeholder={t.common.confirmWord} />
         </div>
         <button className="btn btn-secondary" disabled={pending}>
-          Fshi
+          {t.common.delete}
         </button>
       </form>
 
       {msg ? (
-        <div className={msg.includes("OK") || msg.includes("U ") || msg.includes("përfundoi") ? "flash-ok" : "flash-err"}>
-          {msg}
-        </div>
+        <div className={ok ? "flash-ok" : "flash-err"}>{msg}</div>
       ) : null}
       {inboundKey ? (
         <div className="flash-ok text-sm">
-          Çelësi i ri hyrës: <code>{inboundKey}</code>
+          {t.common.newInboundKey} <code>{inboundKey}</code>
         </div>
       ) : null}
     </div>

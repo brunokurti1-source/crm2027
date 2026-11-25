@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import {
+import { actionT } from "@/lib/i18n/action-t";
   CUSTOM_FIELD_TYPES,
   customFieldDefinitionSchema,
   slugifyFieldKey,
@@ -163,8 +164,12 @@ export async function deleteCustomFieldAction(
 
   const id = String(formData.get("id") || "");
   const confirm = String(formData.get("confirm") || "");
-  if (confirm !== "PO" && confirm !== "YES") {
-    return { error: "Shkruani PO për të konfirmuar fshirjen e fushës." };
+  {
+    const t = await actionT();
+    const ok = new Set(["YES", "PO", t.common.confirmWord, t.common.confirmWord.toUpperCase()]);
+    if (!ok.has(confirm.trim()) && confirm.trim().toUpperCase() !== "YES") {
+      return { error: t.errors.confirmYes };
+    }
   }
 
   const field = await prisma.customFieldDefinition.findUnique({ where: { id } });

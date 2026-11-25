@@ -1,11 +1,13 @@
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { StatusesAdmin } from "./statuses-admin";
 
 export default async function StatusesPage() {
   const ctx = await requireAuth();
+  const { t } = await getDictionary();
   if (ctx.user.role !== "ADMIN" && !ctx.user.permissions.manageStatuses) {
-    return <p className="flash-err">Nuk keni leje.</p>;
+    return <p className="flash-err">{t.statusesPage.noPermission}</p>;
   }
 
   const statuses = await prisma.clientStatus.findMany({
@@ -16,11 +18,8 @@ export default async function StatusesPage() {
   return (
     <div className="space-y-4 max-w-4xl">
       <div>
-        <h1 className="page-title">Statuset e klientit</h1>
-        <p className="page-sub">
-          Shtoni, riemërtoni ose hiqni statuset pa ndryshuar kodin. Para fshirjes
-          zgjidhni një zëvendësues nëse ka klientë.
-        </p>
+        <h1 className="page-title">{t.statusesPage.title}</h1>
+        <p className="page-sub">{t.statusesPage.subtitle}</p>
       </div>
       <StatusesAdmin
         statuses={statuses.map((s) => ({

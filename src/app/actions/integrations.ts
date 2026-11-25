@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import {
+import { actionT } from "@/lib/i18n/action-t";
   CRM_MAPPABLE_FIELDS,
   mintInboundKey,
   parseAllowedAgentIds,
@@ -218,8 +219,13 @@ export async function deleteIntegrationAction(
 ): Promise<{ error?: string; ok?: boolean }> {
   const ctx = await requireAuth();
   if (!assertAdmin(ctx)) return { error: "Vetëm administratori." };
-  if (String(formData.get("confirm") || "") !== "PO") {
-    return { error: "Shkruani PO për të konfirmuar fshirjen." };
+  {
+    const t = await actionT();
+    const confirm = String(formData.get("confirm") || "").trim();
+    const ok = new Set(["YES", "PO", t.common.confirmWord, t.common.confirmWord.toUpperCase()]);
+    if (!ok.has(confirm) && confirm.toUpperCase() !== "YES") {
+      return { error: t.errors.confirmYes };
+    }
   }
   const id = String(formData.get("id") || "");
   const existing = await prisma.integration.findUnique({ where: { id } });
@@ -414,8 +420,13 @@ export async function discardPendingItemAction(
 ): Promise<{ error?: string; ok?: boolean }> {
   const ctx = await requireAuth();
   if (!assertAdmin(ctx)) return { error: "Vetëm administratori." };
-  if (String(formData.get("confirm") || "") !== "PO") {
-    return { error: "Shkruani PO për të hedhur poshtë." };
+  {
+    const t = await actionT();
+    const confirm = String(formData.get("confirm") || "").trim();
+    const ok = new Set(["YES", "PO", t.common.confirmWord, t.common.confirmWord.toUpperCase()]);
+    if (!ok.has(confirm) && confirm.toUpperCase() !== "YES") {
+      return { error: t.errors.confirmReject };
+    }
   }
   const id = String(formData.get("id") || "");
   await prisma.integrationPendingItem.update({
