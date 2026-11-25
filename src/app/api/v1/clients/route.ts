@@ -3,8 +3,7 @@ import { z } from "zod";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { logActivity } from "@/lib/audit";
-import { findDuplicateClient } from "@/lib/clients";
-import { CLIENT_STATUSES } from "@/lib/permissions";
+import { findDuplicateClients } from "@/lib/duplicates";
 
 const upsertSchema = z.object({
   clientIdNumber: z.string().min(1),
@@ -16,11 +15,12 @@ const upsertSchema = z.object({
   address: z.string().optional().nullable(),
   country: z.string().optional().nullable(),
   leadSource: z.string().optional().nullable(),
-  status: z.enum(CLIENT_STATUSES).optional(),
+  status: z.string().optional(),
   creditBalance: z.number().optional(),
   notes: z.string().optional().nullable(),
   agentEmail: z.string().email().optional().nullable(),
   managerEmail: z.string().email().optional().nullable(),
+  acknowledgeDuplicates: z.boolean().optional(),
 });
 
 export async function GET(request: Request) {
@@ -37,6 +37,7 @@ export async function GET(request: Request) {
   const clients = await prisma.client.findMany({
     where: {
       archived: false,
+      deletedAt: null,
       ...(status ? { status } : {}),
       ...(q
         ? {
@@ -67,6 +68,7 @@ export async function GET(request: Request) {
       lastContactAt: true,
       agentId: true,
       managerId: true,
+      version: true,
     },
   });
 
@@ -132,16 +134,17 @@ export async function POST(request: Request) {
   });
 
   if (existing) {
-    const dup = await findDuplicateClient({
+    const dups = await findDuplicateClients({
       phone: data.phone,
       email,
       excludeId: existing.id,
     });
-    if (dup) {
+    if (dups.length && !data.acknowledgeDuplicates) {
       return NextResponse.json(
         {
           error: "Dublikatë",
-          conflictWith: dup.clientIdNumber,
+          duplicates: dups,
+          needsDuplicateAck: true,
         },
         { status: 409 },
       );
@@ -164,6 +167,7 @@ export async function POST(request: Request) {
         agentId: agentId ?? existing.agentId,
         managerId: managerId ?? existing.managerId,
         lastContactAt: new Date(),
+        version: { increment: 1 },
       },
     });
 
@@ -177,13 +181,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ data: updated, created: false });
   }
 
-  const dup = await findDuplicateClient({
+  const dups = await findDuplicateClients({
+    clientIdNumber: data.clientIdNumber,
     phone: data.phone,
     email,
   });
-  if (dup) {
+  if (dups.length && !data.acknowledgeDuplicates) {
     return NextResponse.json(
-      { error: "Dublikatë", conflictWith: dup.clientIdNumber },
+      {
+        error: "Dublikatë",
+        duplicates: dups,
+        needsDuplicateAck: true,
+      },
       { status: 409 },
     );
   }
@@ -214,7 +223,6 @@ export async function POST(request: Request) {
     metadata: { apiKeyId: auth.keyId },
   });
 
-  // Surface on agenda: if agent assigned, create a follow-up reminder
   if (agentId) {
     await prisma.reminder.create({
       data: {

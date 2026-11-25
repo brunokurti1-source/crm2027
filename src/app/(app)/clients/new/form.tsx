@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { createClientAction } from "@/app/actions/clients";
+import Link from "next/link";
+import {
+  checkDuplicatesAction,
+  createClientAction,
+} from "@/app/actions/clients";
+import type { DuplicateMatch } from "@/lib/duplicates";
 
 export function CreateClientForm({
   agents,
@@ -15,6 +20,8 @@ export function CreateClientForm({
   showAssignments: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
+  const [ack, setAck] = useState(false);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -22,8 +29,13 @@ export function CreateClientForm({
       className="card p-5 space-y-4"
       action={(fd) => {
         setError(null);
+        if (ack) fd.set("acknowledgeDuplicates", "1");
         startTransition(async () => {
           const res = await createClientAction(fd);
+          if (res?.duplicates) {
+            setDuplicates(res.duplicates);
+            setAck(false);
+          }
           if (res?.error) setError(res.error);
         });
       }}
@@ -112,12 +124,57 @@ export function CreateClientForm({
         <label>Shënime</label>
         <textarea name="notes" rows={3} />
       </div>
-      {error ? (
-        <div className="text-sm text-[var(--danger)] bg-[var(--danger-bg)] rounded-lg px-3 py-2">
-          {error}
+
+      <button
+        type="button"
+        className="btn btn-secondary"
+        disabled={pending}
+        onClick={(e) => {
+          const form = e.currentTarget.form;
+          if (!form) return;
+          const fd = new FormData(form);
+          startTransition(async () => {
+            const res = await checkDuplicatesAction(fd);
+            setDuplicates(res.duplicates || []);
+            if (!res.duplicates?.length) {
+              setError(null);
+            }
+          });
+        }}
+      >
+        Kontrollo dublikatat
+      </button>
+
+      {duplicates.length > 0 ? (
+        <div className="flash-err space-y-2">
+          <p className="font-semibold">Klientë të ngjashëm (nuk bashkohen automatikisht):</p>
+          <ul className="text-sm space-y-1">
+            {duplicates.map((d) => (
+              <li key={d.id}>
+                <Link href={`/clients/${d.id}`} className="underline">
+                  {d.clientIdNumber}
+                </Link>{" "}
+                — {d.firstName} {d.lastName} ({d.matchedOn.join(", ")})
+              </li>
+            ))}
+          </ul>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={ack}
+              onChange={(e) => setAck(e.target.checked)}
+            />
+            I kam kontrolluar — vazhdo me krijimin e klientit të ri
+          </label>
         </div>
       ) : null}
-      <button className="btn btn-primary" type="submit" disabled={pending}>
+
+      {error ? <div className="flash-err">{error}</div> : null}
+      <button
+        className="btn btn-primary"
+        type="submit"
+        disabled={pending || (duplicates.length > 0 && !ack)}
+      >
         {pending ? "Duke ruajtur…" : "Krijo klientin"}
       </button>
     </form>

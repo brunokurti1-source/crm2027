@@ -14,6 +14,9 @@ export async function assertClientInScope(
   clientIdNumber: string;
   creditBalance: number;
   status: string;
+  version: number;
+  updatedAt: Date;
+  notes: string | null;
 }> {
   const client = await prisma.client.findUnique({ where: { id: clientId } });
   if (!client || client.deletedAt) {

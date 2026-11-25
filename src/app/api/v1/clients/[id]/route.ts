@@ -3,8 +3,7 @@ import { z } from "zod";
 import { authenticateApiKey } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { logActivity } from "@/lib/audit";
-import { findDuplicateClient } from "@/lib/clients";
-import { CLIENT_STATUSES } from "@/lib/permissions";
+import { findDuplicateClients } from "@/lib/duplicates";
 
 const patchSchema = z.object({
   firstName: z.string().min(1).optional(),
@@ -15,10 +14,12 @@ const patchSchema = z.object({
   address: z.string().optional().nullable(),
   country: z.string().optional().nullable(),
   leadSource: z.string().optional().nullable(),
-  status: z.enum(CLIENT_STATUSES).optional(),
+  status: z.string().optional(),
   creditBalance: z.number().optional(),
   notes: z.string().optional().nullable(),
   archived: z.boolean().optional(),
+  acknowledgeDuplicates: z.boolean().optional(),
+  expectedVersion: z.number().int().positive().optional(),
 });
 
 type Params = { params: Promise<{ id: string }> };
@@ -32,6 +33,7 @@ export async function GET(request: Request, { params }: Params) {
   const { id } = await params;
   const client = await prisma.client.findFirst({
     where: {
+      deletedAt: null,
       OR: [{ id }, { clientIdNumber: id }],
     },
   });
@@ -51,7 +53,10 @@ export async function PATCH(request: Request, { params }: Params) {
 
   const { id } = await params;
   const client = await prisma.client.findFirst({
-    where: { OR: [{ id }, { clientIdNumber: id }] },
+    where: {
+      deletedAt: null,
+      OR: [{ id }, { clientIdNumber: id }],
+    },
   });
   if (!client) {
     return NextResponse.json({ error: "Nuk u gjet" }, { status: 404 });
@@ -75,15 +80,33 @@ export async function PATCH(request: Request, { params }: Params) {
   const data = parsed.data;
   const email = data.email === "" ? null : data.email;
 
+  if (
+    data.expectedVersion != null &&
+    data.expectedVersion !== client.version
+  ) {
+    return NextResponse.json(
+      {
+        error: "Konflikt versioni — klienti u ndryshua nga dikush tjetër",
+        conflict: true,
+        serverVersion: client.version,
+      },
+      { status: 409 },
+    );
+  }
+
   if (data.phone !== undefined || email !== undefined) {
-    const dup = await findDuplicateClient({
-      phone: data.phone ?? null,
-      email: email ?? null,
+    const dups = await findDuplicateClients({
+      phone: data.phone ?? client.phone,
+      email: email ?? client.email,
       excludeId: client.id,
     });
-    if (dup) {
+    if (dups.length && !data.acknowledgeDuplicates) {
       return NextResponse.json(
-        { error: "Dublikatë", conflictWith: dup.clientIdNumber },
+        {
+          error: "Dublikatë",
+          duplicates: dups,
+          needsDuplicateAck: true,
+        },
         { status: 409 },
       );
     }
@@ -92,9 +115,20 @@ export async function PATCH(request: Request, { params }: Params) {
   const updated = await prisma.client.update({
     where: { id: client.id },
     data: {
-      ...data,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      phone: data.phone,
+      company: data.company,
+      address: data.address,
+      country: data.country,
+      leadSource: data.leadSource,
+      status: data.status,
+      creditBalance: data.creditBalance,
+      notes: data.notes,
+      archived: data.archived,
       email: email === undefined ? undefined : email,
       lastContactAt: new Date(),
+      version: { increment: 1 },
     },
   });
 

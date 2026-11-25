@@ -5,6 +5,7 @@ import { buildClientWhere, clientSort, ClientFilters } from "@/lib/clients";
 import { STATUS_LABELS } from "@/lib/permissions";
 import { formatDate, formatMoney, fullName } from "@/lib/format";
 import { StatusBadge } from "@/components/status-badge";
+import { BulkAssignBar } from "@/components/bulk-assign";
 
 export default async function ClientsPage({
   searchParams,
@@ -193,10 +194,31 @@ export default async function ClientsPage({
         </div>
       </form>
 
+      {(ctx.user.permissions.manageClients || ctx.user.role === "ADMIN") && (
+        <BulkAssignBar
+          agents={agents.map((a) => ({
+            id: a.id,
+            label: fullName(a.firstName, a.lastName),
+          }))}
+          managers={
+            managers.length
+              ? managers.map((m) => ({
+                  id: m.id,
+                  label: fullName(m.firstName, m.lastName),
+                }))
+              : ctx.user.role === "MANAGER"
+                ? [{ id: ctx.user.id, label: fullName(ctx.user.firstName, ctx.user.lastName) }]
+                : []
+          }
+        />
+      )}
+
       <div className="card overflow-x-auto">
         <table className="table text-sm">
           <thead>
             <tr>
+              {(ctx.user.permissions.manageClients ||
+                ctx.user.role === "ADMIN") && <th></th>}
               <th>ID</th>
               <th>Emri</th>
               <th>Kontakt</th>
@@ -210,6 +232,12 @@ export default async function ClientsPage({
           <tbody>
             {clients.map((c) => (
               <tr key={c.id}>
+                {(ctx.user.permissions.manageClients ||
+                  ctx.user.role === "ADMIN") && (
+                  <td>
+                    <input type="checkbox" name="clientIds" value={c.id} />
+                  </td>
+                )}
                 <td>
                   <Link
                     className="text-[var(--brand)] font-semibold"

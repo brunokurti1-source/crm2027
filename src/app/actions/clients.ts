@@ -5,10 +5,11 @@ import { redirect } from "next/navigation";
 import { getAuthContext, requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logActivity, logAudit } from "@/lib/audit";
-import { findDuplicateClient } from "@/lib/clients";
+import { findDuplicateClients } from "@/lib/duplicates";
 import { clientUpsertSchema, normalizeOptional } from "@/lib/validation";
 import { ScopeError, assertClientInScope } from "@/lib/scope";
 import { recordSoftDelete } from "@/lib/soft-delete";
+import { clearTextDraftAction } from "@/app/actions/drafts";
 
 function formToObject(formData: FormData) {
   const get = (k: string) => {
@@ -62,13 +63,18 @@ export async function createClientAction(formData: FormData) {
     return { error: "Statusi i zgjedhur nuk është i vlefshëm." };
   }
 
-  const dup = await findDuplicateClient({
+  const dups = await findDuplicateClients({
     clientIdNumber: data.clientIdNumber,
     phone,
     email,
   });
-  if (dup) {
-    return { error: `Dublikatë: klienti ekziston (${dup.clientIdNumber}).` };
+  const acknowledge = formData.get("acknowledgeDuplicates") === "1";
+  if (dups.length && !acknowledge) {
+    return {
+      error: "U gjetën klientë të ngjashëm. Kontrolloni dublikatat para se të vazhdoni.",
+      duplicates: dups,
+      needsDuplicateAck: true as const,
+    };
   }
 
   let agentId = data.agentId || null;
@@ -120,6 +126,48 @@ export async function updateClientAction(clientId: string, formData: FormData) {
 
   try {
     const existing = await assertClientInScope(ctx, clientId);
+    const expectedVersion = Number(formData.get("expectedVersion") || "");
+    if (
+      Number.isFinite(expectedVersion) &&
+      expectedVersion > 0 &&
+      expectedVersion !== existing.version
+    ) {
+      const latest = await prisma.client.findUnique({
+        where: { id: clientId },
+        include: {
+          activityLogs: {
+            orderBy: { createdAt: "desc" },
+            take: 5,
+            include: {
+              actor: { select: { firstName: true, lastName: true } },
+            },
+          },
+        },
+      });
+      return {
+        error:
+          "Klienti u ndryshua nga një përdorues tjetër. Rifreskoni të dhënat para se të ruani.",
+        conflict: true as const,
+        serverVersion: existing.version,
+        serverUpdatedAt: existing.updatedAt.toISOString(),
+        recentChanges: (latest?.activityLogs || []).map((a) => ({
+          action: a.action,
+          description: a.description,
+          at: a.createdAt.toISOString(),
+          actor: a.actor
+            ? `${a.actor.firstName} ${a.actor.lastName}`
+            : null,
+        })),
+        serverSnapshot: {
+          firstName: existing.firstName,
+          lastName: existing.lastName,
+          status: existing.status,
+          notes: existing.notes,
+          version: existing.version,
+        },
+      };
+    }
+
     const parsed = clientUpsertSchema.safeParse(formToObject(formData));
     if (!parsed.success) {
       return { error: parsed.error.issues[0]?.message || "Të dhëna të pavlefshme" };
@@ -135,20 +183,28 @@ export async function updateClientAction(clientId: string, formData: FormData) {
       return { error: "Statusi i zgjedhur nuk është i vlefshëm." };
     }
 
-    const dup = await findDuplicateClient({
+    const dups = await findDuplicateClients({
       clientIdNumber: data.clientIdNumber,
       phone,
       email,
       excludeId: clientId,
     });
-    if (dup) {
-      return { error: `Dublikatë me klientin ${dup.clientIdNumber}.` };
+    const acknowledge = formData.get("acknowledgeDuplicates") === "1";
+    if (dups.length && !acknowledge) {
+      return {
+        error: "U gjetën klientë të ngjashëm. Kontrolloni dublikatat.",
+        duplicates: dups,
+        needsDuplicateAck: true as const,
+      };
     }
 
     const statusChanged = existing.status !== data.status;
 
-    await prisma.client.update({
-      where: { id: clientId },
+    const updated = await prisma.client.updateMany({
+      where: {
+        id: clientId,
+        version: existing.version,
+      },
       data: {
         clientIdNumber: data.clientIdNumber,
         firstName: data.firstName,
@@ -164,8 +220,18 @@ export async function updateClientAction(clientId: string, formData: FormData) {
         agentId: data.agentId || null,
         managerId: data.managerId || null,
         lastContactAt: new Date(),
+        version: { increment: 1 },
       },
     });
+
+    if (updated.count === 0) {
+      return {
+        error:
+          "Klienti u ndryshua nga një përdorues tjetër gjatë ruajtjes. Rifreskoni faqen.",
+        conflict: true as const,
+        serverVersion: existing.version,
+      };
+    }
 
     if (statusChanged) {
       await logActivity({
@@ -184,12 +250,56 @@ export async function updateClientAction(clientId: string, formData: FormData) {
       });
     }
 
+    await clearTextDraftAction({ clientId, kind: "NOTES" }).catch(() => null);
+
+    // Notify other assignees that the client changed (they may have the page open)
+    const notifyIds = new Set<string>();
+    if (existing.agentId && existing.agentId !== ctx.realUser.id) {
+      notifyIds.add(existing.agentId);
+    }
+    if (existing.managerId && existing.managerId !== ctx.realUser.id) {
+      notifyIds.add(existing.managerId);
+    }
+    for (const userId of notifyIds) {
+      await prisma.notification.create({
+        data: {
+          userId,
+          title: "Klienti u ndryshua",
+          body: `${existing.clientIdNumber} u përditësua nga ${ctx.realUser.firstName} ${ctx.realUser.lastName}. Rifreskoni para se të ruani.`,
+          kind: "SYSTEM",
+          href: `/clients/${clientId}`,
+        },
+      });
+    }
+
     revalidatePath(`/clients/${clientId}`);
     revalidatePath("/clients");
-    return { ok: true };
+    return { ok: true, version: existing.version + 1 };
   } catch (e) {
     return { error: errMsg(e, "Gabim gjatë ruajtjes") };
   }
+}
+
+export async function checkDuplicatesAction(formData: FormData) {
+  const ctx = await requireAuth();
+  if (
+    !ctx.user.permissions.clientAdd &&
+    !ctx.user.permissions.clientEdit &&
+    ctx.user.role !== "ADMIN"
+  ) {
+    return { error: "Nuk keni leje.", duplicates: [] };
+  }
+  const clientIdNumber = String(formData.get("clientIdNumber") || "").trim() || null;
+  const phone = String(formData.get("phone") || "").trim() || null;
+  const email = String(formData.get("email") || "").trim() || null;
+  const excludeId = String(formData.get("excludeId") || "") || undefined;
+  const duplicates = await findDuplicateClients({
+    clientIdNumber,
+    phone,
+    email,
+    excludeId,
+  });
+  return { duplicates };
 }
 
 export async function archiveClientAction(clientId: string) {
@@ -344,6 +454,7 @@ export async function addCommentAction(clientId: string, formData: FormData) {
       where: { id: clientId },
       data: { lastContactAt: new Date() },
     });
+    await clearTextDraftAction({ clientId, kind: "COMMENT" }).catch(() => null);
     revalidatePath(`/clients/${clientId}`);
     return { ok: true };
   } catch (e) {

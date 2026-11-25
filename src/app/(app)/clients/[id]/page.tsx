@@ -6,6 +6,7 @@ import { STATUS_LABELS } from "@/lib/permissions";
 import { formatDate, formatDateTime, formatMoney, fullName } from "@/lib/format";
 import { ClientDetailActions } from "./actions-panel";
 import { StatusBadge } from "@/components/status-badge";
+import { ClientQuickActions } from "@/components/client-quick-actions";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -99,6 +100,16 @@ export default async function ClientDetailPage({ params }: Params) {
           </div>
         </div>
       </div>
+
+      <ClientQuickActions
+        phone={client.phone}
+        email={client.email}
+        permissions={{
+          canComment:
+            ctx.user.permissions.commentsAdd || ctx.user.role === "ADMIN",
+          canMeet: true,
+        }}
+      />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="card p-4 lg:col-span-2 space-y-4">
@@ -204,6 +215,7 @@ export default async function ClientDetailPage({ params }: Params) {
             agentId: client.agentId,
             managerId: client.managerId,
             creditBalance: client.creditBalance,
+            version: client.version,
           }}
           agents={agents.map((a) => ({
             id: a.id,
