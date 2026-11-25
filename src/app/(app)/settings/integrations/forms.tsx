@@ -7,6 +7,7 @@ import {
   deleteIntegrationAction,
   testIntegrationAction,
   runSyncNowAction,
+  runDueSyncsAction,
 } from "@/app/actions/integrations";
 import { CRM_MAPPABLE_FIELDS } from "@/lib/integration-constants";
 
@@ -18,6 +19,34 @@ const defaultMappings = JSON.stringify(
   null,
   2,
 );
+
+export function RunDueSyncsButton() {
+  const [msg, setMsg] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        className="btn btn-secondary"
+        disabled={pending}
+        onClick={() => {
+          setMsg(null);
+          startTransition(async () => {
+            const res = await runDueSyncsAction();
+            if (res.error) setMsg(res.error);
+            else
+              setMsg(
+                `Kontrolluar ${res.checked ?? 0}, ekzekutuar ${res.ran ?? 0}.`,
+              );
+          });
+        }}
+      >
+        {pending ? "Duke sinkronizuar…" : "Ekzekuto intervalet e matura"}
+      </button>
+      {msg ? <span className="text-sm muted">{msg}</span> : null}
+    </div>
+  );
+}
 
 export function CreateIntegrationForm({
   managers,
@@ -125,12 +154,28 @@ export function CreateIntegrationForm({
           <input name="syncIntervalMinutes" type="number" min={0} placeholder="15" />
         </div>
         <div className="field">
-          <label>API key e partnerit (ruhet e enkriptuar)</label>
+          <label>API key e partnerit (e enkriptuar)</label>
           <input name="apiKey" type="password" autoComplete="off" />
         </div>
         <div className="field">
-          <label>Bearer / OAuth token</label>
+          <label>Bearer token</label>
           <input name="bearerToken" type="password" autoComplete="off" />
+        </div>
+        <div className="field">
+          <label>OAuth access token</label>
+          <input name="oauthAccessToken" type="password" autoComplete="off" />
+        </div>
+        <div className="field">
+          <label>OAuth refresh token</label>
+          <input name="oauthRefreshToken" type="password" autoComplete="off" />
+        </div>
+        <div className="field">
+          <label>OAuth client ID</label>
+          <input name="oauthClientId" autoComplete="off" />
+        </div>
+        <div className="field">
+          <label>OAuth client secret</label>
+          <input name="oauthClientSecret" type="password" autoComplete="off" />
         </div>
         <div className="field md:col-span-3">
           <label>Agjentët e lejuar (grupi)</label>
@@ -323,6 +368,22 @@ export function IntegrationDetailActions({
           <div className="field">
             <label>Bearer i ri (opsional)</label>
             <input name="bearerToken" type="password" autoComplete="off" />
+          </div>
+          <div className="field">
+            <label>OAuth access (opsional)</label>
+            <input name="oauthAccessToken" type="password" autoComplete="off" />
+          </div>
+          <div className="field">
+            <label>OAuth refresh (opsional)</label>
+            <input name="oauthRefreshToken" type="password" autoComplete="off" />
+          </div>
+          <div className="field">
+            <label>OAuth client ID</label>
+            <input name="oauthClientId" autoComplete="off" />
+          </div>
+          <div className="field">
+            <label>OAuth client secret</label>
+            <input name="oauthClientSecret" type="password" autoComplete="off" />
           </div>
           <div className="field">
             <label>Çelësi hyrës</label>

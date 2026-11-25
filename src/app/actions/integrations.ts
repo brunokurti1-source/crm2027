@@ -10,6 +10,7 @@ import {
   parseAllowedAgentIds,
   parseMappings,
   retryFailedSyncs,
+  runDueIntegrationSyncs,
   runInboundPoll,
   storeCredentials,
   testIntegrationConnection,
@@ -68,7 +69,19 @@ export async function createIntegrationAction(
 
   const apiKey = String(formData.get("apiKey") || "").trim();
   const bearerToken = String(formData.get("bearerToken") || "").trim();
+  const oauthAccessToken = String(formData.get("oauthAccessToken") || "").trim();
+  const oauthRefreshToken = String(formData.get("oauthRefreshToken") || "").trim();
+  const oauthClientId = String(formData.get("oauthClientId") || "").trim();
+  const oauthClientSecret = String(formData.get("oauthClientSecret") || "").trim();
   const inbound = mintInboundKey();
+
+  const hasCreds =
+    apiKey ||
+    bearerToken ||
+    oauthAccessToken ||
+    oauthRefreshToken ||
+    oauthClientId ||
+    oauthClientSecret;
 
   await prisma.integration.create({
     data: {
@@ -81,13 +94,16 @@ export async function createIntegrationAction(
       direction: String(formData.get("direction") || "BIDIRECTIONAL"),
       baseUrl: String(formData.get("baseUrl") || "").trim() || null,
       authType: String(formData.get("authType") || "API_KEY"),
-      credentialsEnc:
-        apiKey || bearerToken
-          ? storeCredentials({
-              apiKey: apiKey || undefined,
-              bearerToken: bearerToken || undefined,
-            })
-          : null,
+      credentialsEnc: hasCreds
+        ? storeCredentials({
+            apiKey: apiKey || undefined,
+            bearerToken: bearerToken || undefined,
+            oauthAccessToken: oauthAccessToken || undefined,
+            oauthRefreshToken: oauthRefreshToken || undefined,
+            oauthClientId: oauthClientId || undefined,
+            oauthClientSecret: oauthClientSecret || undefined,
+          })
+        : null,
       fieldMappings: mappings || JSON.stringify(
         CRM_MAPPABLE_FIELDS.filter((f) => f !== "externalId").map((f) => ({
           remote: f,
@@ -128,6 +144,10 @@ export async function updateIntegrationAction(
   const agentIds = formData.getAll("allowedAgentIds").map(String).filter(Boolean);
   const apiKey = String(formData.get("apiKey") || "").trim();
   const bearerToken = String(formData.get("bearerToken") || "").trim();
+  const oauthAccessToken = String(formData.get("oauthAccessToken") || "").trim();
+  const oauthRefreshToken = String(formData.get("oauthRefreshToken") || "").trim();
+  const oauthClientId = String(formData.get("oauthClientId") || "").trim();
+  const oauthClientSecret = String(formData.get("oauthClientSecret") || "").trim();
   const rotateInbound = formData.get("rotateInboundKey") === "on";
 
   let inboundKey: string | undefined;
@@ -140,6 +160,14 @@ export async function updateIntegrationAction(
       inboundKeyPrefix: minted.prefix,
     };
   }
+
+  const hasCreds =
+    apiKey ||
+    bearerToken ||
+    oauthAccessToken ||
+    oauthRefreshToken ||
+    oauthClientId ||
+    oauthClientSecret;
 
   await prisma.integration.update({
     where: { id },
@@ -158,11 +186,15 @@ export async function updateIntegrationAction(
       syncIntervalMinutes: Number(formData.get("syncIntervalMinutes") || 0) || null,
       syncEnabled: formData.get("syncEnabled") === "on",
       active: formData.get("active") === "on",
-      ...(apiKey || bearerToken
+      ...(hasCreds
         ? {
             credentialsEnc: storeCredentials({
               apiKey: apiKey || undefined,
               bearerToken: bearerToken || undefined,
+              oauthAccessToken: oauthAccessToken || undefined,
+              oauthRefreshToken: oauthRefreshToken || undefined,
+              oauthClientId: oauthClientId || undefined,
+              oauthClientSecret: oauthClientSecret || undefined,
             }),
           }
         : {}),
@@ -230,6 +262,24 @@ export async function runSyncNowAction(
   revalidatePath(`/settings/integrations/${id}`);
   revalidatePath("/settings/integrations");
   return res.ok ? { ok: true } : { error: res.error };
+}
+
+export async function runDueSyncsAction(): Promise<{
+  error?: string;
+  ok?: boolean;
+  ran?: number;
+  checked?: number;
+}> {
+  const ctx = await requireAuth();
+  if (!assertAdmin(ctx)) return { error: "Vetëm administratori." };
+  const summary = await runDueIntegrationSyncs();
+  await logAudit({
+    actorId: ctx.realUser.id,
+    action: "INTEGRATION_TICK",
+    details: `Manual tick: checked ${summary.checked}, ran ${summary.ran}`,
+  });
+  revalidatePath("/settings/integrations");
+  return { ok: true, ran: summary.ran, checked: summary.checked };
 }
 
 export async function assignPendingItemAction(

@@ -114,6 +114,11 @@ export async function createClientAction(formData: FormData) {
     description: `Klienti ${client.firstName} ${client.lastName} u krijua`,
   });
 
+  const { pushClientOutbound } = await import("@/lib/integrations");
+  void pushClientOutbound({ clientId: client.id, trigger: "client.created" }).catch(
+    () => null,
+  );
+
   revalidatePath("/clients");
   redirect(`/clients/${client.id}`);
 }

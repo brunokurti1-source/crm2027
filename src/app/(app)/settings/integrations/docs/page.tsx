@@ -115,6 +115,41 @@ Headers: X-API-Key: …`}
           </li>
         </ul>
       </section>
+
+      <section className="card p-4 space-y-2 text-sm">
+        <h2 className="font-semibold">7. Sinkronizim me interval &amp; riprovim</h2>
+        <p>
+          Vendosni <code>syncIntervalMinutes</code> dhe aktivizoni sinkronizimin.
+          Cron i jashtëm (ose butoni «Ekzekuto intervalet») thërret:
+        </p>
+        <pre className="text-xs overflow-x-auto bg-[var(--surface-2)] p-3 rounded">
+{`POST /api/integrations/tick
+X-Cron-Secret: $INTEGRATION_CRON_SECRET
+
+# ose si admin i autentikuar (cookie session)`}
+        </pre>
+        <p>
+          Integrimet me status <code>ERROR</code> riproven automatikisht në tick
+          (minimum 5 minuta). Raportet e suksesit/gabimit shfaqen te detaji i
+          integrimit (runs + logje pa sekrete).
+        </p>
+      </section>
+
+      <section className="card p-4 space-y-2 text-sm">
+        <h2 className="font-semibold">8. Hapa për një sistem të ri</h2>
+        <ol className="list-decimal pl-5 space-y-1">
+          <li>Krijoni menaxherin/grupin dhe agjentët.</li>
+          <li>
+            Shtoni integrimin: URL, drejtimi, auth (API key / Bearer / OAuth),
+            hartëzimi i fushave, politika e konflikteve.
+          </li>
+          <li>Ruani çelësin hyrës që shfaqet një herë (X-Integration-Key).</li>
+          <li>Provoni lidhjen, aktivizoni sync, dërgoni një webhook prove.</li>
+          <li>
+            Kontrolloni listën e pritjes nëse caktimi i menaxherit mungon.
+          </li>
+        </ol>
+      </section>
     </div>
   );
 }

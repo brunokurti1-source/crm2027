@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
-import { CreateIntegrationForm } from "./forms";
+import { CreateIntegrationForm, RunDueSyncsButton } from "./forms";
 
 export default async function IntegrationsPage() {
   const ctx = await requireAuth();
@@ -70,6 +70,8 @@ export default async function IntegrationsPage() {
           ) : null}
         </div>
       </div>
+
+      {ctx.user.role === "ADMIN" ? <RunDueSyncsButton /> : null}
 
       {ctx.user.role === "ADMIN" ? (
         <CreateIntegrationForm

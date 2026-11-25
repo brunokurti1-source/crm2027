@@ -119,6 +119,24 @@ curl -s -X PATCH "http://localhost:3000/api/v1/clients/CL-9001" \
 
 Duplicate phone/email/`clientIdNumber` returns **409**.
 
+### Managed integrations (admin)
+
+Admin UI: **Integrimet** (`/settings/integrations`) — per-manager API connections with field mapping, encrypted credentials, inbound webhooks, outbound push, conflict policy, and pending-assignment queue.
+
+```bash
+# Inbound webhook (use the one-time X-Integration-Key shown on create)
+curl -s -X POST "http://localhost:3000/api/integrations/<id>/inbound" \
+  -H "Content-Type: application/json" \
+  -H "X-Integration-Key: int_…" \
+  -d '{"id":"ext-1","firstName":"Ana","lastName":"K","email":"ana@example.com","status":"NEW"}'
+
+# Interval sync / auto-retry tick (cron)
+curl -s -X POST "http://localhost:3000/api/integrations/tick" \
+  -H "X-Cron-Secret: $INTEGRATION_CRON_SECRET"
+```
+
+Full steps: in-app docs at `/settings/integrations/docs`.
+
 ### Excel import columns
 
 `clientIdNumber`, `firstName`, `lastName`, plus optional `phone`, `email`, `company`, `country`, `status`, `creditBalance` (Albanian header aliases accepted).

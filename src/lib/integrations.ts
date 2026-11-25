@@ -692,6 +692,59 @@ export async function retryFailedSyncs(integrationId: string) {
   return runInboundPoll(integrationId, "RETRY");
 }
 
+/**
+ * Run inbound polls for every active, sync-enabled integration whose
+ * interval has elapsed (or that last failed and is due for auto-retry).
+ */
+export async function runDueIntegrationSyncs(): Promise<{
+  checked: number;
+  ran: number;
+  results: Array<{ id: string; name: string; ok: boolean; error?: string }>;
+}> {
+  const integrations = await prisma.integration.findMany({
+    where: {
+      active: true,
+      syncEnabled: true,
+      syncIntervalMinutes: { gt: 0 },
+      OR: [{ direction: "INBOUND" }, { direction: "BIDIRECTIONAL" }],
+    },
+  });
+
+  const results: Array<{
+    id: string;
+    name: string;
+    ok: boolean;
+    error?: string;
+  }> = [];
+  let ran = 0;
+  const now = Date.now();
+
+  for (const integration of integrations) {
+    const intervalMs = (integration.syncIntervalMinutes || 0) * 60 * 1000;
+    if (intervalMs <= 0) continue;
+
+    const last = integration.lastSyncAt?.getTime() ?? 0;
+    const due = now - last >= intervalMs;
+    const failedRetry =
+      integration.lastSyncStatus === "ERROR" &&
+      now - last >= Math.min(intervalMs, 5 * 60 * 1000);
+
+    if (!due && !failedRetry) continue;
+
+    ran++;
+    const trigger = failedRetry && !due ? "RETRY" : "INTERVAL";
+    const res = await runInboundPoll(integration.id, trigger);
+    results.push({
+      id: integration.id,
+      name: integration.name,
+      ok: res.ok,
+      error: res.error,
+    });
+  }
+
+  return { checked: integrations.length, ran, results };
+}
+
 export async function testIntegrationConnection(integrationId: string): Promise<{
   ok: boolean;
   error?: string;
