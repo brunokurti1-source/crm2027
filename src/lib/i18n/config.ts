@@ -12,6 +12,13 @@ export const LOCALE_LABELS: Record<Locale, string> = {
   de: "Deutsch",
 };
 
+export const LOCALE_INTL: Record<Locale, string> = {
+  en: "en-US",
+  es: "es-ES",
+  it: "it-IT",
+  de: "de-DE",
+};
+
 export function isLocale(value: string): value is Locale {
   return (LOCALES as readonly string[]).includes(value);
 }

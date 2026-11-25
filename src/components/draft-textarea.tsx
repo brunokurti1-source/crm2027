@@ -5,6 +5,7 @@ import {
   getTextDraftAction,
   saveTextDraftAction,
 } from "@/app/actions/drafts";
+import { useT } from "@/components/i18n-provider";
 
 type Status = "idle" | "saving" | "saved" | "error";
 
@@ -24,10 +25,10 @@ export function DraftTextarea({
   rows?: number;
   label: string;
   placeholder?: string;
-  /** Published value already on the client (for NOTES) */
   initialServerValue?: string;
   required?: boolean;
 }) {
+  const t = useT();
   const [value, setValue] = useState(initialServerValue);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +70,7 @@ export function DraftTextarea({
         localStorage.setItem(localKey, body);
       } catch {
         setStatus("error");
-        setError("Nuk u ruajt drafti lokal.");
+        setError(t.drafts.localSaveFailed);
         return;
       }
       startTransition(async () => {
@@ -82,7 +83,7 @@ export function DraftTextarea({
         }
       });
     },
-    [clientId, kind, localKey],
+    [clientId, kind, localKey, t.drafts.localSaveFailed],
   );
 
   function onChange(next: string) {
@@ -94,12 +95,12 @@ export function DraftTextarea({
 
   const statusLabel =
     status === "saving" || pending
-      ? "Drafti po ruhet…"
+      ? t.drafts.saving
       : status === "saved"
-        ? "Drafti u ruajt"
+        ? t.drafts.saved
         : status === "error"
-          ? error || "Gabim gjatë ruajtjes së draftit"
-          : "Draft i paruajtur";
+          ? error || t.drafts.error
+          : t.drafts.unsaved;
 
   return (
     <div className="field">

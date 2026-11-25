@@ -13,6 +13,7 @@ import {
 import { createMeetingAction } from "@/app/actions/meetings";
 import { DraftTextarea } from "@/components/draft-textarea";
 import type { DuplicateMatch } from "@/lib/duplicates";
+import { useT } from "@/components/i18n-provider";
 
 type Client = {
   id: string;
@@ -66,6 +67,7 @@ export function ClientDetailActions({
     canMeet: boolean;
   };
 }) {
+  const t = useT();
   const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
   const [conflict, setConflict] = useState<ConflictInfo | null>(null);
@@ -103,7 +105,7 @@ export function ClientDetailActions({
           recentChanges: res.recentChanges,
           serverVersion: res.serverVersion,
         });
-        setMsg(res.error || "Konflikt ndryshimesh.");
+        setMsg(res.error || t.clients.versionConflict);
         return;
       }
       if (res.error) {
@@ -112,7 +114,7 @@ export function ClientDetailActions({
       }
       if (res.version) setVersion(res.version);
       setDuplicates([]);
-      setMsg("U ruajt.");
+      setMsg(t.common.saved);
       router.refresh();
     });
   }
@@ -132,12 +134,12 @@ export function ClientDetailActions({
       {conflict ? (
         <div className="card p-4 space-y-2 border-[var(--warn)]">
           <p className="text-sm font-semibold text-[var(--warn)]">
-            Ndryshim nga një përdorues tjetër
+            {t.clients.conflictTitle}
           </p>
           <ul className="text-sm space-y-1">
             {(conflict.recentChanges || []).map((c, i) => (
               <li key={i} className="muted">
-                {c.actor || "—"} · {c.action}: {c.description}
+{c.actor || t.common.none} · {c.action}: {c.description}
               </li>
             ))}
           </ul>
@@ -149,14 +151,14 @@ export function ClientDetailActions({
               router.refresh();
             }}
           >
-            Rifresko të dhënat
+            {t.clients.refresh}
           </button>
         </div>
       ) : null}
 
       {duplicates.length > 0 ? (
         <div className="flash-err space-y-2">
-          <p className="font-semibold">Klientë të ngjashëm:</p>
+<p className="font-semibold">{t.clients.similarShort}</p>
           <ul className="text-sm space-y-1">
             {duplicates.map((d) => (
               <li key={d.id}>
@@ -173,7 +175,7 @@ export function ClientDetailActions({
               checked={ackDup}
               onChange={(e) => setAckDup(e.target.checked)}
             />
-            I kam kontrolluar dublikatat
+            {t.clients.acknowledgeDuplicatesShort}
           </label>
         </div>
       ) : null}
@@ -187,11 +189,11 @@ export function ClientDetailActions({
             run(() => updateClientAction(client.id, fd));
           }}
         >
-          <h3 className="font-semibold">Ndrysho</h3>
+<h3 className="font-semibold">{t.clients.editSection}</h3>
           <input type="hidden" name="expectedVersion" value={version} />
           <div className="grid-form">
             <div className="field">
-              <label>ID</label>
+<label>{t.clients.id}</label>
               <input
                 name="clientIdNumber"
                 defaultValue={client.clientIdNumber}
@@ -199,23 +201,23 @@ export function ClientDetailActions({
               />
             </div>
             <div className="field">
-              <label>Emri</label>
+<label>{t.common.firstName}</label>
               <input name="firstName" defaultValue={client.firstName} required />
             </div>
             <div className="field">
-              <label>Mbiemri</label>
+<label>{t.common.lastName}</label>
               <input name="lastName" defaultValue={client.lastName} required />
             </div>
             <div className="field">
-              <label>Telefon</label>
+<label>{t.clients.phone}</label>
               <input name="phone" defaultValue={client.phone || ""} />
             </div>
             <div className="field">
-              <label>Email</label>
+<label>{t.clients.email}</label>
               <input name="email" defaultValue={client.email || ""} />
             </div>
             <div className="field">
-              <label>Statusi</label>
+<label>{t.clients.status}</label>
               <select name="status" defaultValue={client.status}>
                 {statuses.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -225,27 +227,27 @@ export function ClientDetailActions({
               </select>
             </div>
             <div className="field">
-              <label>Kompania</label>
+<label>{t.clients.company}</label>
               <input name="company" defaultValue={client.company || ""} />
             </div>
             <div className="field">
-              <label>Shteti</label>
+<label>{t.clients.country}</label>
               <input name="country" defaultValue={client.country || ""} />
             </div>
             <div className="field">
-              <label>Adresa</label>
+<label>{t.clients.address}</label>
               <input name="address" defaultValue={client.address || ""} />
             </div>
             <div className="field">
-              <label>Burimi</label>
+<label>{t.clients.leadSource}</label>
               <input name="leadSource" defaultValue={client.leadSource || ""} />
             </div>
             {permissions.canAssign && (
               <>
                 <div className="field">
-                  <label>Agjenti</label>
+<label>{t.clients.agent}</label>
                   <select name="agentId" defaultValue={client.agentId || ""}>
-                    <option value="">—</option>
+<option value="">{t.common.none}</option>
                     {agents.map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.label}
@@ -255,12 +257,12 @@ export function ClientDetailActions({
                 </div>
                 {managers.length > 0 && (
                   <div className="field">
-                    <label>Menaxheri</label>
+<label>{t.clients.manager}</label>
                     <select
                       name="managerId"
                       defaultValue={client.managerId || ""}
                     >
-                      <option value="">—</option>
+  <option value="">{t.common.none}</option>
                       {managers.map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.label}
@@ -276,7 +278,7 @@ export function ClientDetailActions({
             clientId={client.id}
             kind="NOTES"
             name="notes"
-            label="Shënime (draft automatik)"
+label={t.clients.notesDraft}
             initialServerValue={client.notes || ""}
             rows={3}
           />
@@ -284,7 +286,7 @@ export function ClientDetailActions({
             className="btn btn-primary"
             disabled={pending || (duplicates.length > 0 && !ackDup)}
           >
-            Ruaj ndryshimet
+            {t.clients.saveChanges}
           </button>
         </form>
       )}
@@ -295,18 +297,18 @@ export function ClientDetailActions({
           action={(fd) => run(() => adjustCreditsAction(client.id, fd))}
         >
           <h3 className="font-semibold">
-            Kredi (bilanci: {client.creditBalance})
+            {t.clients.creditsSection}: {client.creditBalance})
           </h3>
           <div className="field">
-            <label>Shuma (+ shto / − hiq)</label>
+<label>{t.clients.amount}</label>
             <input name="amount" type="number" step="0.01" required />
           </div>
           <div className="field">
-            <label>Arsyeja / shënimi *</label>
+<label>{t.clients.reasonRequired}</label>
             <input name="reason" required />
           </div>
           <button className="btn btn-secondary" disabled={pending}>
-            Përditëso kredinë
+            {t.clients.updateCredit}
           </button>
         </form>
       )}
@@ -317,17 +319,17 @@ export function ClientDetailActions({
           className="card p-4 space-y-3"
           action={(fd) => run(() => addCommentAction(client.id, fd))}
         >
-          <h3 className="font-semibold">Shto koment</h3>
+<h3 className="font-semibold">{t.clients.addComment}</h3>
           <DraftTextarea
             clientId={client.id}
             kind="COMMENT"
             name="body"
-            label="Komenti (draft — publikohet vetëm pasi të shtoni)"
+label={t.clients.commentDraft}
             rows={3}
             required
           />
           <button className="btn btn-secondary" disabled={pending}>
-            Publiko komentin
+            {t.clients.publishComment}
           </button>
         </form>
       )}
@@ -341,24 +343,24 @@ export function ClientDetailActions({
             run(() => createMeetingAction(fd));
           }}
         >
-          <h3 className="font-semibold">Planifiko takim</h3>
+<h3 className="font-semibold">{t.clients.scheduleMeeting}</h3>
           <input type="hidden" name="clientId" value={client.id} />
           <div className="grid-form">
             <div className="field">
-              <label>Data</label>
+<label>{t.clients.date}</label>
               <input name="date" type="date" required />
             </div>
             <div className="field">
-              <label>Ora</label>
+<label>{t.clients.time}</label>
               <input name="time" type="time" defaultValue="10:00" />
             </div>
           </div>
           <div className="field">
-            <label>Shënime</label>
+<label>{t.clients.notes}</label>
             <input name="notes" />
           </div>
           <button className="btn btn-secondary" disabled={pending}>
-            Planifiko
+            {t.clients.schedule}
           </button>
         </form>
       )}
@@ -369,7 +371,7 @@ export function ClientDetailActions({
           action={() => run(() => archiveClientAction(client.id))}
         >
           <button className="btn btn-secondary" disabled={pending}>
-            Arkivo klientin
+            {t.clients.archive}
           </button>
         </form>
       )}
@@ -387,14 +389,14 @@ export function ClientDetailActions({
           }
         >
           <h3 className="font-semibold text-[var(--danger)]">
-            Zhvendos te Të fshira
+            {t.clients.moveToRecycle}
           </h3>
           <div className="field">
-            <label>Shkruani FSHIJ për konfirmim</label>
+<label>{t.clients.deleteConfirm}</label>
             <input name="confirm" required />
           </div>
           <button className="btn btn-danger" disabled={pending}>
-            Konfirmo fshirjen
+            {t.clients.confirmDeleteAction}
           </button>
         </form>
       )}

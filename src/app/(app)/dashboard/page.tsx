@@ -12,7 +12,7 @@ export default async function DashboardPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const ctx = await requireAuth();
-  const { t } = await getDictionary();
+  const { locale, t } = await getDictionary();
   const sp = await searchParams;
   const scope = clientScopeWhere(ctx);
 
@@ -158,7 +158,7 @@ export default async function DashboardPage({
         <section className="card p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-[var(--ink-strong)]">
-              {t.clients.new}
+              {t.dashboard.newClients}
             </h2>
             <Link href="/clients?status=NEW" className="text-sm text-[var(--brand)]">
               {t.nav.clients}
@@ -189,37 +189,37 @@ export default async function DashboardPage({
         <section className="card p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-[var(--ink-strong)]">
-              Detyrat e sotme
+              {t.dashboard.tasksToday}
             </h2>
             <Link href="/tasks" className="text-sm text-[var(--brand)]">
-              Agjenda e detyrave
+              {t.dashboard.viewTasks}
             </Link>
           </div>
           <ul className="space-y-2 text-sm">
-            {openTasks.map((t) => (
+            {openTasks.map((task) => (
               <li
-                key={t.id}
+                key={task.id}
                 className="border-b border-[var(--line-soft)] pb-2"
               >
-                <div className="font-medium">{t.title}</div>
+                <div className="font-medium">{task.title}</div>
                 <div className="muted text-xs">
-                  {formatDateTime(t.dueAt)}
-                  {t.client
-                    ? ` · ${fullName(t.client.firstName, t.client.lastName)}`
+                  {formatDateTime(task.dueAt, locale)}
+                  {task.client
+                    ? ` · ${fullName(task.client.firstName, task.client.lastName)}`
                     : ""}
-                  {t.priority === "HIGH" ? " · Prioritet i lartë" : ""}
+                  {task.priority === "HIGH" ? t.dashboard.highPriority : ""}
                 </div>
               </li>
             ))}
             {!openTasks.length ? (
-              <li className="muted">Nuk ka detyra për sot</li>
+              <li className="muted">{t.dashboard.noTasksToday}</li>
             ) : null}
           </ul>
         </section>
 
         <section className="card p-4">
           <h2 className="font-semibold text-[var(--ink-strong)] mb-3">
-            Takime të ardhshme
+            {t.dashboard.upcomingMeetings}
           </h2>
           <ul className="space-y-2 text-sm">
             {upcomingMeetings.map((m) => (
@@ -234,7 +234,7 @@ export default async function DashboardPage({
                   {fullName(m.client.firstName, m.client.lastName)}
                 </Link>
                 <div className="muted text-xs">
-                  {formatDateTime(m.scheduledAt)}
+                  {formatDateTime(m.scheduledAt, locale)}
                 </div>
               </li>
             ))}
@@ -247,13 +247,13 @@ export default async function DashboardPage({
         <section className="card p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-[var(--ink-strong)]">
-              Njoftime
+              {t.notifications.title}
             </h2>
             <Link
               href="/notifications"
               className="text-sm text-[var(--brand)]"
             >
-              Të gjitha
+              {t.common.all}
             </Link>
           </div>
           <ul className="space-y-2 text-sm">
@@ -267,11 +267,11 @@ export default async function DashboardPage({
               </li>
             ))}
             {!unreadNotifs.length ? (
-              <li className="muted">Nuk ka njoftime të reja</li>
+<li className="muted">{t.dashboard.noUnread}</li>
             ) : null}
           </ul>
           <h3 className="font-semibold text-sm mt-4 mb-2">
-            Pa kontakt ≥ {staleDays} ditë
+            {t.dashboard.staleContactDays.replace("{days}", String(staleDays))}
           </h3>
           <ul className="space-y-2 text-sm">
             {staleClients.map((c) => (
@@ -282,7 +282,7 @@ export default async function DashboardPage({
               </li>
             ))}
             {!staleClients.length ? (
-              <li className="muted">Nuk ka klientë të vonuar</li>
+<li className="muted">{t.dashboard.noStale}</li>
             ) : null}
           </ul>
         </section>
@@ -300,8 +300,8 @@ export default async function DashboardPage({
             >
               <span>{a.description}</span>
               <span className="muted text-xs">
-                {formatDateTime(a.createdAt)}
-                {a.viaImpersonationOf ? " · (impersonim)" : ""}
+                {formatDateTime(a.createdAt, locale)}
+                {a.viaImpersonationOf ? t.dashboard.viaImpersonation : ""}
               </span>
             </li>
           ))}

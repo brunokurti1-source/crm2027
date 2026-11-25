@@ -7,6 +7,7 @@ import {
   createClientAction,
 } from "@/app/actions/clients";
 import type { DuplicateMatch } from "@/lib/duplicates";
+import { useT } from "@/components/i18n-provider";
 
 export function CreateClientForm({
   agents,
@@ -19,6 +20,7 @@ export function CreateClientForm({
   statuses: { id: string; label: string }[];
   showAssignments: boolean;
 }) {
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
   const [ack, setAck] = useState(false);
@@ -42,43 +44,49 @@ export function CreateClientForm({
     >
       <div className="grid-form">
         <div className="field">
-          <label>ID klienti *</label>
+          <label>
+            {t.clients.id} {t.clients.required}
+          </label>
           <input name="clientIdNumber" required placeholder="CL-2001" />
         </div>
         <div className="field">
-          <label>Emri *</label>
+          <label>
+            {t.common.firstName} {t.clients.required}
+          </label>
           <input name="firstName" required />
         </div>
         <div className="field">
-          <label>Mbiemri *</label>
+          <label>
+            {t.common.lastName} {t.clients.required}
+          </label>
           <input name="lastName" required />
         </div>
         <div className="field">
-          <label>Telefon</label>
+          <label>{t.clients.phone}</label>
           <input name="phone" />
         </div>
         <div className="field">
-          <label>Email</label>
+          <label>{t.clients.email}</label>
           <input name="email" type="email" />
         </div>
         <div className="field">
-          <label>Kompania</label>
+          <label>{t.clients.company}</label>
           <input name="company" />
         </div>
         <div className="field">
-          <label>Adresa</label>
+          <label>{t.clients.address}</label>
           <input name="address" />
         </div>
         <div className="field">
-          <label>Shteti</label>
+          <label>{t.clients.country}</label>
           <input name="country" />
         </div>
         <div className="field">
-          <label>Burimi</label>
+          <label>{t.clients.leadSource}</label>
           <input name="leadSource" />
         </div>
         <div className="field">
-          <label>Statusi</label>
+          <label>{t.clients.status}</label>
           <select name="status" defaultValue="NEW">
             {statuses.map((s) => (
               <option key={s.id} value={s.id}>
@@ -88,15 +96,15 @@ export function CreateClientForm({
           </select>
         </div>
         <div className="field">
-          <label>Bilanci kredie</label>
+          <label>{t.clients.creditBalanceLabel}</label>
           <input name="creditBalance" type="number" step="0.01" defaultValue="0" />
         </div>
         {showAssignments && (
           <>
             <div className="field">
-              <label>Agjenti</label>
+              <label>{t.clients.agent}</label>
               <select name="agentId" defaultValue="">
-                <option value="">—</option>
+                <option value="">{t.common.none}</option>
                 {agents.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.label}
@@ -106,9 +114,9 @@ export function CreateClientForm({
             </div>
             {managers.length > 0 && (
               <div className="field">
-                <label>Menaxheri</label>
+                <label>{t.clients.manager}</label>
                 <select name="managerId" defaultValue="">
-                  <option value="">—</option>
+                  <option value="">{t.common.none}</option>
                   {managers.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.label}
@@ -121,7 +129,7 @@ export function CreateClientForm({
         )}
       </div>
       <div className="field">
-        <label>Shënime</label>
+        <label>{t.clients.notes}</label>
         <textarea name="notes" rows={3} />
       </div>
 
@@ -142,12 +150,12 @@ export function CreateClientForm({
           });
         }}
       >
-        Kontrollo dublikatat
+        {t.clients.checkDuplicates}
       </button>
 
       {duplicates.length > 0 ? (
         <div className="flash-err space-y-2">
-          <p className="font-semibold">Klientë të ngjashëm (nuk bashkohen automatikisht):</p>
+          <p className="font-semibold">{t.clients.similarClients}</p>
           <ul className="text-sm space-y-1">
             {duplicates.map((d) => (
               <li key={d.id}>
@@ -164,7 +172,7 @@ export function CreateClientForm({
               checked={ack}
               onChange={(e) => setAck(e.target.checked)}
             />
-            I kam kontrolluar — vazhdo me krijimin e klientit të ri
+            {t.clients.acknowledgeDuplicates}
           </label>
         </div>
       ) : null}
@@ -175,7 +183,7 @@ export function CreateClientForm({
         type="submit"
         disabled={pending || (duplicates.length > 0 && !ack)}
       >
-        {pending ? "Duke ruajtur…" : "Krijo klientin"}
+        {pending ? t.common.saving : t.clients.createSubmit}
       </button>
     </form>
   );
