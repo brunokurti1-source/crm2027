@@ -32,6 +32,14 @@ async function main() {
   await prisma.comment.deleteMany();
   await prisma.activityLog.deleteMany();
   await prisma.auditLog.deleteMany();
+  await prisma.textDraft.deleteMany().catch(() => null);
+  await prisma.customFieldValue.deleteMany().catch(() => null);
+  await prisma.customFieldDefinition.deleteMany().catch(() => null);
+  await prisma.integrationPendingItem.deleteMany().catch(() => null);
+  await prisma.integrationExternalId.deleteMany().catch(() => null);
+  await prisma.integrationLog.deleteMany().catch(() => null);
+  await prisma.integrationSyncRun.deleteMany().catch(() => null);
+  await prisma.integration.deleteMany().catch(() => null);
   await prisma.client.deleteMany();
   await prisma.clientStatus.deleteMany();
   await prisma.apiKey.deleteMany();
@@ -130,7 +138,7 @@ async function main() {
       address: "Prishtinë",
       country: "Kosovo",
       leadSource: "Referral",
-      status: "CONTACTED",
+      status: "MEDIUM_POTENTIAL",
       creditBalance: 500,
       agentId: agent1.id,
       managerId: manager.id,
@@ -146,7 +154,7 @@ async function main() {
       address: "Tirana",
       country: "Albania",
       leadSource: "Fair",
-      status: "FOLLOW_UP",
+      status: "NO_ANSWER",
       creditBalance: 0,
       agentId: agent2.id,
       managerId: manager.id,
@@ -161,7 +169,7 @@ async function main() {
       address: "Durrës",
       country: "Albania",
       leadSource: "Cold call",
-      status: "MEETING_SET",
+      status: "DEPOSITOR",
       creditBalance: 1200,
       agentId: agent2.id,
       managerId: manager.id,
@@ -176,7 +184,7 @@ async function main() {
       address: "Shkodër",
       country: "Albania",
       leadSource: "Partner",
-      status: "ACTIVE",
+      status: "HIGH_POTENTIAL",
       creditBalance: 2500,
       agentId: agent1.id,
       managerId: manager.id,

@@ -14,21 +14,21 @@ export async function loginAction(formData: FormData) {
   const password = String(formData.get("password") || "");
 
   if (!email || !password) {
-    return { error: "Plotësoni email dhe fjalëkalimin." };
+    return { error: "fillEmailPassword", errorKey: "fillEmailPassword" as const };
   }
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || !user.active) {
-    return { error: "Email ose fjalëkalim i pasaktë." };
+    return { error: "badCredentials", errorKey: "badCredentials" as const };
   }
 
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) {
-    return { error: "Email ose fjalëkalim i pasaktë." };
+    return { error: "badCredentials", errorKey: "badCredentials" as const };
   }
 
   if (!["ADMIN", "MANAGER", "AGENT"].includes(user.role)) {
-    return { error: "Roli nuk lejohet për hyrje." };
+    return { error: "roleNotAllowed", errorKey: "roleNotAllowed" as const };
   }
 
   const session = await getSession();

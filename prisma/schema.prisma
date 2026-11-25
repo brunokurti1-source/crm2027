@@ -13,6 +13,7 @@ model User {
   passwordHash String
   firstName    String
   lastName     String
+  phone        String?
   /// ADMIN | MANAGER | AGENT
   role         String
   active       Boolean  @default(true)
@@ -115,6 +116,43 @@ model ClientStatus {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   clients   Client[]
+}
+
+/// Admin-defined fields for CLIENT or USER entities
+model CustomFieldDefinition {
+  id           String   @id @default(cuid())
+  /// CLIENT | USER
+  entityType   String
+  key          String
+  label        String
+  /// TEXT | NUMBER | DATE | BOOLEAN | SELECT
+  dataType     String   @default("TEXT")
+  required     Boolean  @default(false)
+  /// JSON string array for SELECT options
+  options      String?
+  sortOrder    Int      @default(0)
+  active       Boolean  @default(true)
+  showInList   Boolean  @default(false)
+  showInFilter Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  values       CustomFieldValue[]
+
+  @@unique([entityType, key])
+  @@index([entityType, active, sortOrder])
+}
+
+model CustomFieldValue {
+  id        String   @id @default(cuid())
+  fieldId   String
+  entityId  String
+  value     String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  field     CustomFieldDefinition @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([fieldId, entityId])
+  @@index([entityId])
 }
 
 model Comment {
@@ -281,6 +319,122 @@ model ApiKey {
   keyHash    String
   keyPrefix  String
   active     Boolean   @default(true)
+  /// When set, API access is limited to this manager's group
+  managerId  String?
   createdAt  DateTime  @default(now())
   lastUsedAt DateTime?
+
+  @@index([managerId])
+}
+
+/// External system connection (admin-managed, optionally scoped to a manager group)
+model Integration {
+  id                   String    @id @default(cuid())
+  name                 String
+  description          String?
+  /// Owning manager group — null = admin/global only
+  managerId            String?
+  /// Default agent within the manager group for inbound clients
+  defaultAgentId       String?
+  /// JSON array of agent user IDs allowed to receive data from this integration
+  allowedAgentIds      String    @default("[]")
+  /// WEBHOOK | REST_POLL | BOTH
+  connectionType       String    @default("BOTH")
+  /// INBOUND | OUTBOUND | BIDIRECTIONAL
+  direction            String    @default("BIDIRECTIONAL")
+  baseUrl              String?
+  /// API_KEY | BEARER | OAUTH2 | NONE
+  authType             String    @default("API_KEY")
+  /// AES-GCM encrypted JSON credentials — never logged or returned raw
+  credentialsEnc       String?
+  /// JSON array: [{ remote, local }]
+  fieldMappings        String    @default("[]")
+  /// CRM_WINS | REMOTE_WINS | NEWEST_WINS
+  conflictPolicy       String    @default("NEWEST_WINS")
+  syncIntervalMinutes  Int?
+  syncEnabled          Boolean   @default(false)
+  active               Boolean   @default(true)
+  lastSyncAt           DateTime?
+  lastSyncStatus       String?
+  lastError            String?
+  /// Hashed inbound webhook/API key (X-Integration-Key)
+  inboundKeyHash       String?
+  inboundKeyPrefix     String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  runs                 IntegrationSyncRun[]
+  logs                 IntegrationLog[]
+  externalIds          IntegrationExternalId[]
+  pendingItems         IntegrationPendingItem[]
+
+  @@index([active, syncEnabled])
+  @@index([managerId])
+}
+
+/// Inbound payloads that could not be assigned to a manager/agent group
+model IntegrationPendingItem {
+  id            String    @id @default(cuid())
+  integrationId String?
+  /// Sanitized payload JSON (no secrets)
+  payload       String
+  externalId    String?
+  reason        String
+  /// PENDING | ASSIGNED | DISCARDED
+  status        String    @default("PENDING")
+  assignedClientId String?
+  assignedById  String?
+  resolvedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  integration   Integration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([integrationId])
+}
+
+model IntegrationSyncRun {
+  id             String    @id @default(cuid())
+  integrationId  String
+  /// MANUAL | INTERVAL | WEBHOOK | RETRY | OUTBOUND
+  trigger        String    @default("MANUAL")
+  /// RUNNING | OK | ERROR | PARTIAL
+  status         String    @default("RUNNING")
+  createdCount   Int       @default(0)
+  updatedCount   Int       @default(0)
+  skippedCount   Int       @default(0)
+  failedCount    Int       @default(0)
+  errorSummary   String?
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
+  integration    Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@index([integrationId, startedAt])
+}
+
+model IntegrationLog {
+  id            String   @id @default(cuid())
+  integrationId String
+  /// INFO | WARN | ERROR
+  level         String   @default("INFO")
+  action        String
+  message       String
+  /// Sanitized metadata JSON (no secrets)
+  meta          String?
+  createdAt     DateTime @default(now())
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@index([integrationId, createdAt])
+}
+
+model IntegrationExternalId {
+  id            String   @id @default(cuid())
+  integrationId String
+  externalId    String
+  clientId      String
+  lastRemoteAt  DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  integration   Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@unique([integrationId, externalId])
+  @@index([clientId])
 }

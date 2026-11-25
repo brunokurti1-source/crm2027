@@ -2,10 +2,10 @@ import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { buildClientWhere, clientSort, ClientFilters } from "@/lib/clients";
-import { STATUS_LABELS } from "@/lib/permissions";
 import { formatDate, formatMoney, fullName } from "@/lib/format";
 import { StatusBadge } from "@/components/status-badge";
 import { BulkAssignBar } from "@/components/bulk-assign";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export default async function ClientsPage({
   searchParams,
@@ -13,8 +13,9 @@ export default async function ClientsPage({
   searchParams: Promise<ClientFilters>;
 }) {
   const ctx = await requireAuth();
+  const { t } = await getDictionary();
   if (!ctx.user.permissions.clientView) {
-    return <p className="flash-err">Nuk keni leje për të parë klientët.</p>;
+    return <p className="flash-err">{t.clients.noPermission}</p>;
   }
 
   const filters = await searchParams;
@@ -77,8 +78,10 @@ export default async function ClientsPage({
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="page-title">Klientët</h1>
-          <p className="page-sub">{clients.length} rezultate</p>
+          <h1 className="page-title">{t.clients.title}</h1>
+          <p className="page-sub">
+            {clients.length} {t.clients.results}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {(ctx.user.permissions.dataExport || ctx.user.role === "ADMIN") && (
@@ -90,12 +93,12 @@ export default async function ClientsPage({
               ).toString()}`}
               className="btn btn-secondary"
             >
-              Eksporto
+              Export
             </Link>
           )}
           {(ctx.user.permissions.clientAdd || ctx.user.role === "ADMIN") && (
             <Link href="/clients/new" className="btn btn-primary">
-              Klient i ri
+              {t.clients.new}
             </Link>
           )}
         </div>
@@ -104,17 +107,17 @@ export default async function ClientsPage({
       <form className="card p-4 space-y-3">
         <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-4">
           <div className="field md:col-span-2">
-            <label>Kërko</label>
+            <label>{t.common.search}</label>
             <input
               name="q"
               defaultValue={filters.q || ""}
-              placeholder="Emër, telefon, email, ID…"
+              placeholder={t.nav.searchClients}
             />
           </div>
           <div className="field">
-            <label>Statusi</label>
+            <label>{t.clients.status}</label>
             <select name="status" defaultValue={filters.status || ""}>
-              <option value="">Të gjitha</option>
+              <option value="">{t.common.all}</option>
               {statuses.map((s) => (
                 <option key={s.code} value={s.code}>
                   {s.labelSq}
@@ -219,14 +222,14 @@ export default async function ClientsPage({
             <tr>
               {(ctx.user.permissions.manageClients ||
                 ctx.user.role === "ADMIN") && <th></th>}
-              <th>ID</th>
-              <th>Emri</th>
-              <th>Kontakt</th>
-              <th>Statusi</th>
-              <th>Kredi</th>
-              <th>Agjent</th>
-              <th>Menaxher</th>
-              <th>Regjistruar</th>
+              <th>{t.clients.id}</th>
+              <th>{t.clients.name}</th>
+              <th>{t.clients.contact}</th>
+              <th>{t.clients.status}</th>
+              <th>{t.clients.credit}</th>
+              <th>{t.clients.agent}</th>
+              <th>{t.clients.manager}</th>
+              <th>{t.clients.registered}</th>
             </tr>
           </thead>
           <tbody>
@@ -261,7 +264,11 @@ export default async function ClientsPage({
                 <td>
                   <StatusBadge
                     code={c.status}
-                    label={c.statusRef?.labelSq || STATUS_LABELS[c.status]}
+                    label={
+                      c.statusRef?.labelSq ||
+                      t.status[c.status] ||
+                      c.status
+                    }
                   />
                 </td>
                 <td>{formatMoney(c.creditBalance)}</td>
@@ -281,7 +288,7 @@ export default async function ClientsPage({
             {!clients.length ? (
               <tr>
                 <td colSpan={8} className="muted">
-                  Nuk u gjetën klientë.
+                  {t.clients.notFound}
                 </td>
               </tr>
             ) : null}

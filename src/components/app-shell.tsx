@@ -4,21 +4,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import type { AuthContext } from "@/lib/auth";
-import { ROLE_LABELS } from "@/lib/permissions";
 import { logoutAction, stopImpersonationAction } from "@/app/actions/auth";
 import { fullName } from "@/lib/format";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { ThemeControls } from "@/components/theme-controls";
 import type { Locale } from "@/lib/i18n/config";
+import type { Messages } from "@/lib/i18n/messages/en";
 
 export function AppShell({
   ctx,
   locale,
+  t,
   unreadCount = 0,
   children,
 }: {
   ctx: AuthContext;
   locale: Locale;
+  t: Messages;
   unreadCount?: number;
   children: React.ReactNode;
 }) {
@@ -27,18 +29,18 @@ export function AppShell({
   const [menuOpen, setMenuOpen] = useState(false);
 
   const links = [
-    { href: "/dashboard", label: "Paneli", show: true },
-    { href: "/clients", label: "Klientët", show: user.permissions.clientView },
-    { href: "/agenda", label: "Agjenda", show: true },
-    { href: "/tasks", label: "Detyrat", show: true },
+    { href: "/dashboard", label: t.nav.dashboard, show: true },
+    { href: "/clients", label: t.nav.clients, show: user.permissions.clientView },
+    { href: "/agenda", label: t.nav.agenda, show: true },
+    { href: "/tasks", label: t.nav.tasks, show: true },
     {
       href: "/team",
-      label: user.role === "ADMIN" ? "Agjentët / Menaxherët" : "Agjentët",
+      label: t.nav.team,
       show: user.role === "ADMIN" || user.role === "MANAGER",
     },
     {
       href: "/reports",
-      label: "Raportet",
+      label: t.nav.reports,
       show:
         user.role === "ADMIN" ||
         user.role === "MANAGER" ||
@@ -46,32 +48,42 @@ export function AppShell({
     },
     {
       href: "/users",
-      label: "Përdoruesit",
+      label: t.nav.users,
       show: user.role === "ADMIN" || user.permissions.manageAgents,
     },
     {
       href: "/import",
-      label: "Import",
+      label: t.nav.import,
       show: user.permissions.dataUpload || user.role === "ADMIN",
     },
     {
       href: "/recycle-bin",
-      label: "Të fshira",
+      label: t.nav.recycle,
       show: user.role === "ADMIN",
     },
     {
       href: "/settings/statuses",
-      label: "Statuset",
+      label: t.nav.statuses,
       show: user.role === "ADMIN" || user.permissions.manageStatuses,
     },
     {
+      href: "/settings/fields",
+      label: t.nav.fields,
+      show: user.role === "ADMIN",
+    },
+    {
+      href: "/settings/integrations",
+      label: t.nav.integrations,
+      show: user.role === "ADMIN" || user.role === "MANAGER",
+    },
+    {
       href: "/backup",
-      label: "Kopje rezervë",
+      label: t.nav.backup,
       show: user.role === "ADMIN",
     },
     {
       href: "/audit",
-      label: "Audit",
+      label: t.nav.audit,
       show: user.role === "ADMIN",
     },
   ];
@@ -83,14 +95,14 @@ export function AppShell({
       {isImpersonating && (
         <div className="impersonation-bar">
           <span>
-            Po shikoni si{" "}
+            {t.impersonation.viewingAs}{" "}
             <strong>{fullName(user.firstName, user.lastName)}</strong> (
-            {ROLE_LABELS[user.role]}). Sesioni real:{" "}
+            {t.roles[user.role]}). {t.impersonation.realSession}:{" "}
             {fullName(realUser.firstName, realUser.lastName)}.
           </span>
           <form action={stopImpersonationAction}>
             <button className="btn btn-secondary" type="submit">
-              Kthehu te llogaria ime
+              {t.impersonation.stop}
             </button>
           </form>
         </div>
@@ -101,7 +113,7 @@ export function AppShell({
           <button
             type="button"
             className="sidebar-backdrop"
-            aria-label="Close menu"
+            aria-label={t.nav.closeMenu}
             onClick={() => setMenuOpen(false)}
           />
         ) : null}
@@ -114,11 +126,9 @@ export function AppShell({
               onClick={() => setMenuOpen(false)}
             >
               <div className="text-lg font-bold tracking-tight text-[var(--ink-strong)]">
-                CRM 2027
+                {t.brand}
               </div>
-              <div className="text-xs muted mt-0.5">
-                {ROLE_LABELS[user.role]}
-              </div>
+              <div className="text-xs muted mt-0.5">{t.roles[user.role]}</div>
             </Link>
           </div>
           <nav className="flex flex-col gap-0.5" aria-label="Main">
@@ -146,7 +156,7 @@ export function AppShell({
             <button
               type="button"
               className="btn btn-ghost md:!hidden"
-              aria-label="Open menu"
+              aria-label={t.nav.openMenu}
               onClick={() => setMenuOpen(true)}
             >
               ☰
@@ -159,14 +169,14 @@ export function AppShell({
               role="search"
             >
               <label className="sr-only" htmlFor="global-search">
-                Kërko klientë
+                {t.nav.searchClients}
               </label>
               <input
                 id="global-search"
                 className="input w-full"
                 name="q"
                 type="search"
-                placeholder="Kërko klientë…"
+                placeholder={t.nav.searchClients}
               />
             </form>
 
@@ -174,8 +184,8 @@ export function AppShell({
               <Link
                 href="/notifications"
                 className="btn btn-ghost relative"
-                aria-label="Njoftimet"
-                title="Njoftimet"
+                aria-label={t.nav.notifications}
+                title={t.nav.notifications}
               >
                 ✉
                 {unreadCount > 0 ? (
@@ -187,17 +197,18 @@ export function AppShell({
               <LanguageSwitcher
                 locale={locale}
                 redirectTo={pathname || "/dashboard"}
+                label={t.nav.language}
               />
               <ThemeControls />
               <div className="hidden sm:block text-right text-sm pl-2 border-l border-[var(--line)] ml-1">
                 <div className="font-semibold leading-tight">
                   {fullName(user.firstName, user.lastName)}
                 </div>
-                <div className="muted text-xs">{ROLE_LABELS[user.role]}</div>
+                <div className="muted text-xs">{t.roles[user.role]}</div>
               </div>
               <form action={logoutAction}>
                 <button className="btn btn-secondary" type="submit">
-                  Dil
+                  {t.nav.logout}
                 </button>
               </form>
             </div>

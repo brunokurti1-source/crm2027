@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import {
   DEFAULT_LOCALE,
   LOCALE_COOKIE,
@@ -16,7 +16,8 @@ export async function setLocaleAction(formData: FormData): Promise<void> {
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
     sameSite: "lax",
+    httpOnly: false,
   });
-  const redirectTo = String(formData.get("redirectTo") || "/");
-  redirect(redirectTo.startsWith("/") ? redirectTo : "/");
+  // Refresh all visible routes so server components re-read the cookie
+  revalidatePath("/", "layout");
 }

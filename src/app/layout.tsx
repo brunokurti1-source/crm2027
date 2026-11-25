@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Source_Sans_3, IBM_Plex_Mono } from "next/font/google";
 import { ThemeInitScript } from "@/components/theme-controls";
+import { getLocale } from "@/lib/i18n/get-dictionary";
 import "./globals.css";
 
 const display = Source_Sans_3({
@@ -16,16 +17,17 @@ const mono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "CRM 2027",
-  description: "CRM për klientë, menaxherë dhe agjentë",
+  description: "CRM for clients, managers, and agents",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
   return (
-    <html lang="sq" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         <ThemeInitScript />
       </head>

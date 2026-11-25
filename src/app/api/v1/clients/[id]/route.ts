@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { authenticateApiKey } from "@/lib/api-auth";
+import { authenticateApiKey, apiClientScope } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { logActivity } from "@/lib/audit";
 import { findDuplicateClients } from "@/lib/duplicates";
@@ -33,7 +33,7 @@ export async function GET(request: Request, { params }: Params) {
   const { id } = await params;
   const client = await prisma.client.findFirst({
     where: {
-      deletedAt: null,
+      ...apiClientScope(auth.managerId),
       OR: [{ id }, { clientIdNumber: id }],
     },
   });
@@ -54,7 +54,7 @@ export async function PATCH(request: Request, { params }: Params) {
   const { id } = await params;
   const client = await prisma.client.findFirst({
     where: {
-      deletedAt: null,
+      ...apiClientScope(auth.managerId),
       OR: [{ id }, { clientIdNumber: id }],
     },
   });

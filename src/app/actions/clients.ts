@@ -272,6 +272,12 @@ export async function updateClientAction(clientId: string, formData: FormData) {
       });
     }
 
+    // Fire-and-forget outbound webhooks to manager-scoped integrations
+    const { pushClientOutbound } = await import("@/lib/integrations");
+    void pushClientOutbound({ clientId, trigger: "client.updated" }).catch(
+      () => null,
+    );
+
     revalidatePath(`/clients/${clientId}`);
     revalidatePath("/clients");
     return { ok: true, version: existing.version + 1 };

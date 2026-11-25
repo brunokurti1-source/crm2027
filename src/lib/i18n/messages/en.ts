@@ -1,17 +1,27 @@
 export type Messages = {
   brand: string;
-  nav: Record<
-    | "dashboard"
-    | "clients"
-    | "agenda"
-    | "team"
-    | "users"
-    | "import"
-    | "audit"
-    | "logout"
-    | "language",
-    string
-  >;
+  nav: {
+    dashboard: string;
+    clients: string;
+    agenda: string;
+    tasks: string;
+    team: string;
+    reports: string;
+    users: string;
+    import: string;
+    recycle: string;
+    statuses: string;
+    fields: string;
+    integrations: string;
+    backup: string;
+    audit: string;
+    notifications: string;
+    logout: string;
+    language: string;
+    searchClients: string;
+    openMenu: string;
+    closeMenu: string;
+  };
   roles: Record<"ADMIN" | "MANAGER" | "AGENT", string>;
   status: Record<string, string>;
   permissions: Record<string, string>;
@@ -34,12 +44,23 @@ export const en: Messages = {
     dashboard: "Dashboard",
     clients: "Clients",
     agenda: "Agenda",
-    team: "Team",
+    tasks: "Tasks",
+    team: "Agents / Managers",
+    reports: "Reports",
     users: "Users",
     import: "Import",
+    recycle: "Deleted",
+    statuses: "Statuses",
+    fields: "Custom fields",
+    integrations: "Integrations",
+    backup: "Backup",
     audit: "Audit",
+    notifications: "Notifications",
     logout: "Log out",
     language: "Language",
+    searchClients: "Search clients…",
+    openMenu: "Open menu",
+    closeMenu: "Close menu",
   },
   roles: {
     ADMIN: "Administrator",
@@ -48,12 +69,21 @@ export const en: Messages = {
   },
   status: {
     NEW: "New",
+    NO_ANSWER: "No answer",
+    DEPOSITOR: "Depositor",
+    UNDER_18: "Under 18",
+    ANOTHER_LANGUAGE: "Another language",
+    WRONG_PERSON: "Wrong person",
+    FAKE: "Fake",
+    LOW_POTENTIAL: "Low potential",
+    MEDIUM_POTENTIAL: "Medium potential",
+    HIGH_POTENTIAL: "High potential",
+    ARCHIVED: "Archived",
     CONTACTED: "Contacted",
     QUALIFIED: "Qualified",
     PROPOSAL: "Proposal",
     WON: "Won",
     LOST: "Lost",
-    ARCHIVED: "Archived",
   },
   permissions: {
     clientView: "View clients",
@@ -77,7 +107,7 @@ export const en: Messages = {
     password: "Password",
     submit: "Sign in",
     submitting: "Signing in…",
-    demoHint: "Local demo: admin@crm.local / Demo123! — see README.",
+    demoHint: "Local demo: admin@crm.local / Demo123!",
   },
   common: {
     save: "Save",
@@ -102,7 +132,7 @@ export const en: Messages = {
   impersonation: {
     viewingAs: "You are viewing as",
     realSession: "Real session",
-    stop: "Stop impersonation",
+    stop: "Return to my account",
     impersonate: "Impersonate",
     impersonateManager: "Impersonate manager",
   },
@@ -120,6 +150,10 @@ export const en: Messages = {
     noMeetings: "No scheduled meetings",
     noActivity: "No activity",
     noAssignments: "No assignments",
+    openTasks: "Open tasks",
+    overdueTasks: "Overdue tasks",
+    staleClients: "Stale contacts",
+    unread: "Unread notifications",
   },
   clients: {
     title: "Clients",
@@ -245,7 +279,7 @@ export const en: Messages = {
   },
   importPage: {
     title: "Excel / CSV import",
-    hint: "Expected columns: clientIdNumber, firstName, lastName, phone, email, company, country, status, creditBalance (local header aliases accepted).",
+    hint: "Expected columns: clientIdNumber, firstName, lastName, phone, email, company, country, status, creditBalance.",
     noPermission: "You do not have permission to import.",
     file: "File (.xlsx / .csv)",
     submit: "Import",

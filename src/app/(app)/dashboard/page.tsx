@@ -3,8 +3,8 @@ import { requireAuth, clientScopeWhere } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { StatCard } from "@/components/stat-card";
 import { StatusBadge } from "@/components/status-badge";
-import { STATUS_LABELS } from "@/lib/permissions";
 import { formatDateTime, fullName } from "@/lib/format";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export default async function DashboardPage({
   searchParams,
@@ -12,6 +12,7 @@ export default async function DashboardPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const ctx = await requireAuth();
+  const { t } = await getDictionary();
   const sp = await searchParams;
   const scope = clientScopeWhere(ctx);
 
@@ -129,36 +130,38 @@ export default async function DashboardPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="page-title">Paneli</h1>
+          <h1 className="page-title">{t.dashboard.title}</h1>
           <p className="page-sub">
-            Mirë se vini, {ctx.user.firstName}. Informacioni më i dobishëm për
-            ditën.
+            {t.dashboard.welcome}, {ctx.user.firstName}. {t.dashboard.scopedHint}
           </p>
         </div>
         <Link href="/clients" className="btn btn-primary">
-          Klientët
+          {t.nav.clients}
         </Link>
       </div>
 
       {sp.error === "permission" ? (
-        <div className="flash-err">Nuk keni leje për këtë veprim.</div>
+        <div className="flash-err">{t.common.permissionDenied}</div>
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Klientë aktivë" value={totalClients} />
-        <StatCard label="Detyra sot" value={openTasks.length} />
-        <StatCard label="Detyra të vonuara" value={overdueTasks} />
-        <StatCard label="Takime të ardhshme" value={upcomingMeetings.length} />
+        <StatCard label={t.dashboard.activeClients} value={totalClients} />
+        <StatCard label={t.dashboard.openTasks} value={openTasks.length} />
+        <StatCard label={t.dashboard.overdueTasks} value={overdueTasks} />
+        <StatCard
+          label={t.dashboard.upcomingMeetings}
+          value={upcomingMeetings.length}
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="card p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-[var(--ink-strong)]">
-              Klientë të rinj
+              {t.clients.new}
             </h2>
             <Link href="/clients?status=NEW" className="text-sm text-[var(--brand)]">
-              Shiko të gjithë
+              {t.nav.clients}
             </Link>
           </div>
           <ul className="space-y-2 text-sm">
@@ -171,11 +174,14 @@ export default async function DashboardPage({
                   {fullName(c.firstName, c.lastName)}
                   <span className="muted text-xs ml-2">{c.clientIdNumber}</span>
                 </Link>
-                <StatusBadge code={c.status} label={STATUS_LABELS[c.status]} />
+                <StatusBadge
+                  code={c.status}
+                  label={t.status[c.status] || c.status}
+                />
               </li>
             ))}
             {!newClients.length ? (
-              <li className="muted">Nuk ka klientë të rinj</li>
+              <li className="muted">{t.common.noData}</li>
             ) : null}
           </ul>
         </section>
@@ -233,7 +239,7 @@ export default async function DashboardPage({
               </li>
             ))}
             {!upcomingMeetings.length ? (
-              <li className="muted">Nuk ka takime të planifikuara</li>
+              <li className="muted">{t.dashboard.noMeetings}</li>
             ) : null}
           </ul>
         </section>
@@ -284,7 +290,7 @@ export default async function DashboardPage({
 
       <section className="card p-4">
         <h2 className="font-semibold text-[var(--ink-strong)] mb-3">
-          Aktiviteti i fundit
+          {t.dashboard.recentActivity}
         </h2>
         <ul className="space-y-2 text-sm">
           {recentActivity.map((a) => (
@@ -300,7 +306,7 @@ export default async function DashboardPage({
             </li>
           ))}
           {!recentActivity.length ? (
-            <li className="muted">Nuk ka aktivitet</li>
+            <li className="muted">{t.dashboard.noActivity}</li>
           ) : null}
         </ul>
       </section>

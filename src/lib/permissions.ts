@@ -150,22 +150,19 @@ export const ROLE_LABELS: Record<Role, string> = {
   AGENT: "Agjent",
 };
 
-/** Fallback codes if DB statuses are empty */
+/** Fallback codes if DB statuses are empty — includes operational pipeline + disposition labels */
 export const DEFAULT_STATUS_SEED = [
   { code: "NEW", labelSq: "I ri", labelEn: "New", sortOrder: 10, isSystem: true },
-  { code: "AWAITING_CONTACT", labelSq: "Në pritje të kontaktit", labelEn: "Awaiting contact", sortOrder: 20, isSystem: true },
-  { code: "CONTACTED", labelSq: "Në kontakt", labelEn: "In contact", sortOrder: 30, isSystem: true },
-  { code: "MEETING_SET", labelSq: "Takim i caktuar", labelEn: "Meeting set", sortOrder: 40, isSystem: true },
-  { code: "FOLLOW_UP", labelSq: "Në ndjekje", labelEn: "Follow-up", sortOrder: 50, isSystem: true },
-  { code: "ACTIVE", labelSq: "Klient aktiv", labelEn: "Active client", sortOrder: 60, isSystem: true },
-  { code: "CLOSED", labelSq: "I mbyllur", labelEn: "Closed", sortOrder: 70, isSystem: true },
-  { code: "UNSUITABLE", labelSq: "I papërshtatshëm", labelEn: "Unsuitable", sortOrder: 80, isSystem: true },
-  { code: "ARCHIVED", labelSq: "Arkivuar", labelEn: "Archived", sortOrder: 90, isSystem: true },
-  // legacy codes kept for existing rows
-  { code: "QUALIFIED", labelSq: "I kualifikuar", labelEn: "Qualified", sortOrder: 35, isSystem: true },
-  { code: "PROPOSAL", labelSq: "Propozim", labelEn: "Proposal", sortOrder: 45, isSystem: true },
-  { code: "WON", labelSq: "Fituar", labelEn: "Won", sortOrder: 65, isSystem: true },
-  { code: "LOST", labelSq: "Humbur", labelEn: "Lost", sortOrder: 75, isSystem: true },
+  { code: "NO_ANSWER", labelSq: "No answer", labelEn: "No answer", sortOrder: 20, isSystem: false },
+  { code: "DEPOSITOR", labelSq: "Depositor", labelEn: "depositor", sortOrder: 30, isSystem: false },
+  { code: "UNDER_18", labelSq: "Under 18", labelEn: "Under 18", sortOrder: 40, isSystem: false },
+  { code: "ANOTHER_LANGUAGE", labelSq: "Another language", labelEn: "Another language", sortOrder: 50, isSystem: false },
+  { code: "WRONG_PERSON", labelSq: "Wrong person", labelEn: "Wrong person", sortOrder: 60, isSystem: false },
+  { code: "FAKE", labelSq: "Fake", labelEn: "Fake", sortOrder: 70, isSystem: false },
+  { code: "LOW_POTENTIAL", labelSq: "Low potential", labelEn: "Low potential", sortOrder: 80, isSystem: false },
+  { code: "MEDIUM_POTENTIAL", labelSq: "Medium potential", labelEn: "Medium potential", sortOrder: 90, isSystem: false },
+  { code: "HIGH_POTENTIAL", labelSq: "High potential", labelEn: "High potential", sortOrder: 100, isSystem: false },
+  { code: "ARCHIVED", labelSq: "Arkivuar", labelEn: "Archived", sortOrder: 200, isSystem: true },
 ] as const;
 
 export const CLIENT_STATUSES = DEFAULT_STATUS_SEED.map((s) => s.code);

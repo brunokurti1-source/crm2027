@@ -5,9 +5,16 @@ export function hashApiKey(key: string): string {
   return createHash("sha256").update(key).digest("hex");
 }
 
+export type ApiAuthOk = {
+  ok: true;
+  keyId: string;
+  /** When set, all client ops are limited to this manager group */
+  managerId: string | null;
+};
+
 export async function authenticateApiKey(
   request: Request,
-): Promise<{ ok: true; keyId: string } | { ok: false; status: number; error: string }> {
+): Promise<ApiAuthOk | { ok: false; status: number; error: string }> {
   const header =
     request.headers.get("x-api-key") ||
     request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
@@ -17,6 +24,19 @@ export async function authenticateApiKey(
   }
 
   const keyHash = hashApiKey(header);
+
+  // Prefer integration inbound keys (manager-scoped)
+  const integration = await prisma.integration.findFirst({
+    where: { inboundKeyHash: keyHash, active: true },
+  });
+  if (integration) {
+    return {
+      ok: true,
+      keyId: `integration:${integration.id}`,
+      managerId: integration.managerId,
+    };
+  }
+
   const record = await prisma.apiKey.findFirst({
     where: { keyHash, active: true },
   });
@@ -25,7 +45,6 @@ export async function authenticateApiKey(
     return { ok: false, status: 401, error: "API key e pavlefshme" };
   }
 
-  // Constant-time compare on stored hash vs recomputed (defense in depth)
   const a = Buffer.from(record.keyHash);
   const b = Buffer.from(keyHash);
   if (a.length !== b.length || !timingSafeEqual(a, b)) {
@@ -37,5 +56,11 @@ export async function authenticateApiKey(
     data: { lastUsedAt: new Date() },
   });
 
-  return { ok: true, keyId: record.id };
+  return { ok: true, keyId: record.id, managerId: record.managerId };
+}
+
+/** Scope helper for API client queries */
+export function apiClientScope(managerId: string | null | undefined) {
+  if (!managerId) return { deletedAt: null as Date | null };
+  return { deletedAt: null as Date | null, managerId };
 }

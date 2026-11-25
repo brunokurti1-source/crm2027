@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { authenticateApiKey } from "@/lib/api-auth";
+import { authenticateApiKey, apiClientScope } from "@/lib/api-auth";
 import { prisma } from "@/lib/db";
 import { logActivity } from "@/lib/audit";
 import { findDuplicateClients } from "@/lib/duplicates";
@@ -37,7 +37,7 @@ export async function GET(request: Request) {
   const clients = await prisma.client.findMany({
     where: {
       archived: false,
-      deletedAt: null,
+      ...apiClientScope(auth.managerId),
       ...(status ? { status } : {}),
       ...(q
         ? {
@@ -112,6 +112,12 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+    if (auth.managerId && agent.managerId !== auth.managerId) {
+      return NextResponse.json(
+        { error: "Agjenti nuk i përket grupit të kësaj API" },
+        { status: 403 },
+      );
+    }
     agentId = agent.id;
     managerId = agent.managerId;
   }
@@ -126,7 +132,29 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+    if (auth.managerId && manager.id !== auth.managerId) {
+      return NextResponse.json(
+        { error: "Menaxheri nuk përputhet me grupin e kësaj API" },
+        { status: 403 },
+      );
+    }
     managerId = manager.id;
+  }
+
+  // Scoped API keys always land in their manager group
+  if (auth.managerId) {
+    managerId = auth.managerId;
+  }
+
+  if (!managerId && auth.managerId == null && !data.managerEmail && !data.agentEmail) {
+    // Global key without assignment → pending-like rejection for isolation safety
+    return NextResponse.json(
+      {
+        error:
+          "Specifikoni managerEmail ose agentEmail, ose përdorni një API key të lidhur me menaxher.",
+      },
+      { status: 400 },
+    );
   }
 
   const existing = await prisma.client.findUnique({
@@ -134,6 +162,13 @@ export async function POST(request: Request) {
   });
 
   if (existing) {
+    if (auth.managerId && existing.managerId !== auth.managerId) {
+      return NextResponse.json(
+        { error: "Klienti i përket një grupi tjetër" },
+        { status: 403 },
+      );
+    }
+
     const dups = await findDuplicateClients({
       phone: data.phone,
       email,

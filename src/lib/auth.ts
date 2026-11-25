@@ -105,10 +105,8 @@ export function canAccessClient(
 ): boolean {
   if (ctx.user.role === "ADMIN") return true;
   if (ctx.user.role === "MANAGER") {
-    return (
-      client.managerId === ctx.user.id ||
-      client.agentId !== null /* checked via agent group below */
-    );
+    // Only own group — never other managers' clients
+    return client.managerId === ctx.user.id;
   }
   if (ctx.user.role === "AGENT") {
     return client.agentId === ctx.user.id;
@@ -126,12 +124,10 @@ export function clientScopeWhere(
     : { deletedAt: null };
   if (ctx.user.role === "ADMIN") return base;
   if (ctx.user.role === "MANAGER") {
+    // Strict group isolation: only clients assigned to this manager
     return {
       ...base,
-      OR: [
-        { managerId: ctx.user.id },
-        { agent: { managerId: ctx.user.id } },
-      ],
+      managerId: ctx.user.id,
     };
   }
   return { ...base, agentId: ctx.user.id };

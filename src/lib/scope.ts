@@ -27,12 +27,6 @@ export async function assertClientInScope(
 
   if (ctx.user.role === "MANAGER") {
     if (client.managerId === ctx.user.id) return client;
-    if (client.agentId) {
-      const agent = await prisma.user.findFirst({
-        where: { id: client.agentId, managerId: ctx.user.id },
-      });
-      if (agent) return client;
-    }
     throw new ScopeError("Nuk keni akses në këtë klient.");
   }
 
