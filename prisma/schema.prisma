@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  /// ADMIN | MANAGER | AGENT
+  role         String
+  active       Boolean  @default(true)
+  /// JSON PermissionFlags
+  permissions  String   @default("{}")
+  managerId    String?
+  manager      User?    @relation("ManagerAgents", fields: [managerId], references: [id])
+  agents       User[]   @relation("ManagerAgents")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  assignedClients  Client[]      @relation("ClientAgent")
+  managedClients   Client[]      @relation("ClientManager")
+  comments         Comment[]
+  meetings         Meeting[]
+  reminders        Reminder[]
+  activityLogs     ActivityLog[] @relation("ActivityActor")
+  auditLogs        AuditLog[]    @relation("AuditActor")
+  auditTargets     AuditLog[]    @relation("AuditTarget")
+}
+
+model Client {
+  id             String    @id @default(cuid())
+  clientIdNumber String    @unique
+  firstName      String
+  lastName       String
+  phone          String?
+  email          String?
+  company        String?
+  address        String?
+  country        String?
+  leadSource     String?
+  /// NEW | CONTACTED | QUALIFIED | PROPOSAL | WON | LOST | ARCHIVED
+  status         String    @default("NEW")
+  creditBalance  Float     @default(0)
+  notes          String?
+  archived       Boolean   @default(false)
+  registrationDate DateTime @default(now())
+  lastContactAt  DateTime?
+  agentId        String?
+  managerId      String?
+  agent          User?     @relation("ClientAgent", fields: [agentId], references: [id])
+  manager        User?     @relation("ClientManager", fields: [managerId], references: [id])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  comments     Comment[]
+  meetings     Meeting[]
+  activityLogs ActivityLog[]
+
+  @@index([phone])
+  @@index([email])
+  @@index([status])
+  @@index([country])
+  @@index([agentId])
+  @@index([managerId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  clientId  String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id])
+}
+
+model Meeting {
+  id          String   @id @default(cuid())
+  clientId    String
+  agentId     String
+  scheduledAt DateTime
+  notes       String?
+  /// SCHEDULED | DONE | CANCELLED
+  status      String   @default("SCHEDULED")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  agent       User     @relation(fields: [agentId], references: [id])
+  reminders   Reminder[]
+
+  @@index([agentId, scheduledAt])
+}
+
+model Reminder {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String
+  dueAt     DateTime
+  notes     String?
+  done      Boolean   @default(false)
+  meetingId String?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meeting   Meeting?  @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+
+  @@index([userId, dueAt])
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  clientId    String?
+  actorId     String?
+  action      String
+  description String
+  metadata    String?
+  createdAt   DateTime @default(now())
+  client      Client?  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  actor       User?    @relation("ActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([clientId, createdAt])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorId      String?
+  targetUserId String?
+  action       String
+  details      String
+  createdAt    DateTime @default(now())
+  actor        User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  targetUser   User?    @relation("AuditTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  name       String
+  keyHash    String
+  keyPrefix  String
+  active     Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+}

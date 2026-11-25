@@ -1,0 +1,130 @@
+"use server";
+
+import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/db";
+import { getSession } from "@/lib/session";
+import { logAudit } from "@/lib/audit";
+import { redirect } from "next/navigation";
+import { getAuthContext } from "@/lib/auth";
+
+export async function loginAction(formData: FormData) {
+  const email = String(formData.get("email") || "")
+    .trim()
+    .toLowerCase();
+  const password = String(formData.get("password") || "");
+
+  if (!email || !password) {
+    return { error: "Plotësoni email dhe fjalëkalimin." };
+  }
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user || !user.active) {
+    return { error: "Email ose fjalëkalim i pasaktë." };
+  }
+
+  const ok = await bcrypt.compare(password, user.passwordHash);
+  if (!ok) {
+    return { error: "Email ose fjalëkalim i pasaktë." };
+  }
+
+  if (!["ADMIN", "MANAGER", "AGENT"].includes(user.role)) {
+    return { error: "Roli nuk lejohet për hyrje." };
+  }
+
+  const session = await getSession();
+  session.userId = user.id;
+  session.realUserId = undefined;
+  session.impersonatingUserId = undefined;
+  session.isLoggedIn = true;
+  await session.save();
+
+  await logAudit({
+    actorId: user.id,
+    action: "LOGIN",
+    details: `Hyrje e suksesshme për ${user.email}`,
+  });
+
+  redirect("/dashboard");
+}
+
+export async function logoutAction() {
+  const ctx = await getAuthContext();
+  const session = await getSession();
+  if (ctx) {
+    await logAudit({
+      actorId: ctx.realUser.id,
+      action: "LOGOUT",
+      details: `Dalje për ${ctx.realUser.email}`,
+    });
+  }
+  session.destroy();
+  redirect("/login");
+}
+
+export async function startImpersonationAction(formData: FormData): Promise<void> {
+  const targetUserId = String(formData.get("targetUserId") || "");
+  const ctx = await getAuthContext();
+  if (!ctx) redirect("/login");
+
+  if (!ctx.realUser.permissions.impersonate && ctx.realUser.role !== "ADMIN") {
+    redirect("/users?error=impersonate");
+  }
+
+  const target = await prisma.user.findUnique({ where: { id: targetUserId } });
+  if (!target || !target.active) {
+    redirect("/users?error=notfound");
+  }
+
+  if (ctx.realUser.role === "MANAGER") {
+    const allowed =
+      (target.role === "AGENT" && target.managerId === ctx.realUser.id) ||
+      (target.role === "AGENT" &&
+        (await prisma.client.count({
+          where: { agentId: target.id, managerId: ctx.realUser.id },
+        })) > 0);
+    if (!allowed) {
+      redirect("/users?error=scope");
+    }
+  }
+
+  if (ctx.realUser.role === "AGENT") {
+    redirect("/dashboard?error=permission");
+  }
+
+  const session = await getSession();
+  session.realUserId = ctx.realUser.id;
+  session.userId = ctx.realUser.id;
+  session.impersonatingUserId = target.id;
+  session.isLoggedIn = true;
+  await session.save();
+
+  await logAudit({
+    actorId: ctx.realUser.id,
+    targetUserId: target.id,
+    action: "IMPERSONATION_START",
+    details: `${ctx.realUser.email} filloi impersonimin e ${target.email} (${target.role})`,
+  });
+
+  redirect("/dashboard");
+}
+
+export async function stopImpersonationAction(): Promise<void> {
+  const ctx = await getAuthContext();
+  if (!ctx) redirect("/login");
+
+  const session = await getSession();
+  const targetId = session.impersonatingUserId;
+  session.impersonatingUserId = undefined;
+  session.realUserId = undefined;
+  session.userId = ctx.realUser.id;
+  await session.save();
+
+  await logAudit({
+    actorId: ctx.realUser.id,
+    targetUserId: targetId,
+    action: "IMPERSONATION_STOP",
+    details: `${ctx.realUser.email} ndaloi impersonimin`,
+  });
+
+  redirect("/dashboard");
+}
