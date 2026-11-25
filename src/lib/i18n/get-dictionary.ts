@@ -53,6 +53,7 @@ export function resolveMessages(locale: Locale): Messages {
 export async function getLocale(): Promise<Locale> {
   const jar = await cookies();
   const raw = jar.get(LOCALE_COOKIE)?.value;
+  // Albanian (sq) and any unknown value fall back to English
   if (raw && isLocale(raw)) return raw;
   return DEFAULT_LOCALE;
 }
