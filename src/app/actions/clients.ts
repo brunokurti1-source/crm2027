@@ -10,6 +10,7 @@ import { clientUpsertSchema, normalizeOptional } from "@/lib/validation";
 import { ScopeError, assertClientInScope } from "@/lib/scope";
 import { recordSoftDelete } from "@/lib/soft-delete";
 import { clearTextDraftAction } from "@/app/actions/drafts";
+import { actionT } from "@/lib/i18n/action-t";
 
 function formToObject(formData: FormData) {
   const get = (k: string) => {
@@ -42,14 +43,15 @@ function errMsg(e: unknown, fallback: string) {
 }
 
 export async function createClientAction(formData: FormData) {
+  const t = await actionT();
   const ctx = await requireAuth();
   if (!ctx.user.permissions.clientAdd && ctx.user.role !== "ADMIN") {
-    return { error: "Nuk keni leje për të shtuar klientë." };
+    return { error: t.errors.noClientAdd };
   }
 
   const parsed = clientUpsertSchema.safeParse(formToObject(formData));
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message || "Të dhëna të pavlefshme" };
+    return { error: parsed.error.issues[0]?.message || t.errors.invalidData };
   }
 
   const data = parsed.data;
@@ -60,7 +62,7 @@ export async function createClientAction(formData: FormData) {
     where: { code: data.status, active: true },
   });
   if (!statusExists) {
-    return { error: "Statusi i zgjedhur nuk është i vlefshëm." };
+    return { error: t.errors.invalidStatus };
   }
 
   const dups = await findDuplicateClients({
@@ -71,7 +73,7 @@ export async function createClientAction(formData: FormData) {
   const acknowledge = formData.get("acknowledgeDuplicates") === "1";
   if (dups.length && !acknowledge) {
     return {
-      error: "U gjetën klientë të ngjashëm. Kontrolloni dublikatat para se të vazhdoni.",
+      error: t.errors.duplicatesFound,
       duplicates: dups,
       needsDuplicateAck: true as const,
     };
@@ -124,9 +126,10 @@ export async function createClientAction(formData: FormData) {
 }
 
 export async function updateClientAction(clientId: string, formData: FormData) {
+  const t = await actionT();
   const ctx = await requireAuth();
   if (!ctx.user.permissions.clientEdit && ctx.user.role !== "ADMIN") {
-    return { error: "Nuk keni leje për të ndryshuar klientë." };
+    return { error: t.errors.noClientEdit };
   }
 
   try {
@@ -150,8 +153,7 @@ export async function updateClientAction(clientId: string, formData: FormData) {
         },
       });
       return {
-        error:
-          "Klienti u ndryshua nga një përdorues tjetër. Rifreskoni të dhënat para se të ruani.",
+        error: t.errors.conflictRefresh,
         conflict: true as const,
         serverVersion: existing.version,
         serverUpdatedAt: existing.updatedAt.toISOString(),
@@ -175,7 +177,7 @@ export async function updateClientAction(clientId: string, formData: FormData) {
 
     const parsed = clientUpsertSchema.safeParse(formToObject(formData));
     if (!parsed.success) {
-      return { error: parsed.error.issues[0]?.message || "Të dhëna të pavlefshme" };
+      return { error: parsed.error.issues[0]?.message || t.errors.invalidData };
     }
     const data = parsed.data;
     const email = normalizeOptional(data.email ?? null);
@@ -185,7 +187,7 @@ export async function updateClientAction(clientId: string, formData: FormData) {
       where: { code: data.status, active: true },
     });
     if (!statusExists) {
-      return { error: "Statusi i zgjedhur nuk është i vlefshëm." };
+      return { error: t.errors.invalidStatus };
     }
 
     const dups = await findDuplicateClients({
@@ -197,7 +199,7 @@ export async function updateClientAction(clientId: string, formData: FormData) {
     const acknowledge = formData.get("acknowledgeDuplicates") === "1";
     if (dups.length && !acknowledge) {
       return {
-        error: "U gjetën klientë të ngjashëm. Kontrolloni dublikatat.",
+        error: t.errors.duplicatesFoundShort,
         duplicates: dups,
         needsDuplicateAck: true as const,
       };
@@ -231,8 +233,7 @@ export async function updateClientAction(clientId: string, formData: FormData) {
 
     if (updated.count === 0) {
       return {
-        error:
-          "Klienti u ndryshua nga një përdorues tjetër gjatë ruajtjes. Rifreskoni faqen.",
+        error: t.errors.conflictDuringSave,
         conflict: true as const,
         serverVersion: existing.version,
       };
@@ -287,18 +288,19 @@ export async function updateClientAction(clientId: string, formData: FormData) {
     revalidatePath("/clients");
     return { ok: true, version: existing.version + 1 };
   } catch (e) {
-    return { error: errMsg(e, "Gabim gjatë ruajtjes") };
+    return { error: errMsg(e, t.errors.saveFailed) };
   }
 }
 
 export async function checkDuplicatesAction(formData: FormData) {
+  const t = await actionT();
   const ctx = await requireAuth();
   if (
     !ctx.user.permissions.clientAdd &&
     !ctx.user.permissions.clientEdit &&
     ctx.user.role !== "ADMIN"
   ) {
-    return { error: "Nuk keni leje.", duplicates: [] };
+    return { error: t.errors.permissionDenied, duplicates: [] };
   }
   const clientIdNumber = String(formData.get("clientIdNumber") || "").trim() || null;
   const phone = String(formData.get("phone") || "").trim() || null;
@@ -314,9 +316,10 @@ export async function checkDuplicatesAction(formData: FormData) {
 }
 
 export async function archiveClientAction(clientId: string) {
+  const t = await actionT();
   const ctx = await requireAuth();
   if (!ctx.user.permissions.clientDelete && ctx.user.role !== "ADMIN") {
-    return { error: "Nuk keni leje për të arkivuar." };
+    return { error: t.errors.noArchive };
   }
   try {
     await assertClientInScope(ctx, clientId);
@@ -333,7 +336,7 @@ export async function archiveClientAction(clientId: string) {
     revalidatePath("/clients");
     redirect("/clients");
   } catch (e) {
-    return { error: errMsg(e, "Gabim") };
+    return { error: errMsg(e, t.errors.genericError) };
   }
 }
 
@@ -342,12 +345,13 @@ export async function softDeleteClientAction(
   clientId: string,
   confirm: string,
 ) {
+  const t = await actionT();
   const ctx = await requireAuth();
   if (!ctx.user.permissions.clientDelete && ctx.user.role !== "ADMIN") {
-    return { error: "Nuk keni leje për fshirje." };
+    return { error: t.errors.noDelete };
   }
   if (confirm !== "FSHIJ" && confirm !== "DELETE") {
-    return { error: "Shkruani FSHIJ ose DELETE për konfirmim." };
+    return { error: t.errors.confirmDelete };
   }
 
   try {
@@ -379,7 +383,7 @@ export async function softDeleteClientAction(
     revalidatePath("/recycle-bin");
     redirect("/clients");
   } catch (e) {
-    return { error: errMsg(e, "Gabim") };
+    return { error: errMsg(e, t.errors.genericError) };
   }
 }
 
@@ -387,21 +391,22 @@ export async function adjustCreditsAction(
   clientId: string,
   formData: FormData,
 ) {
+  const t = await actionT();
   const ctx = await requireAuth();
   const amount = Number(formData.get("amount"));
   const reason = String(formData.get("reason") || "").trim();
 
   if (Number.isNaN(amount) || amount === 0) {
-    return { error: "Shuma e pavlefshme." };
+    return { error: t.errors.invalidAmount };
   }
   if (!reason) {
-    return { error: "Arsyeja / shënimi është i detyrueshëm." };
+    return { error: t.errors.reasonRequired };
   }
   if (amount > 0 && !ctx.user.permissions.creditsAdd && ctx.user.role !== "ADMIN") {
-    return { error: "Nuk keni leje për të shtuar kredi." };
+    return { error: t.errors.noCreditAdd };
   }
   if (amount < 0 && !ctx.user.permissions.creditsRemove && ctx.user.role !== "ADMIN") {
-    return { error: "Nuk keni leje për të hequr kredi." };
+    return { error: t.errors.noCreditRemove };
   }
 
   try {
@@ -438,17 +443,18 @@ export async function adjustCreditsAction(
     revalidatePath(`/clients/${clientId}`);
     return { ok: true };
   } catch (e) {
-    return { error: errMsg(e, "Gabim") };
+    return { error: errMsg(e, t.errors.genericError) };
   }
 }
 
 export async function addCommentAction(clientId: string, formData: FormData) {
+  const t = await actionT();
   const ctx = await requireAuth();
   if (!ctx.user.permissions.commentsAdd && ctx.user.role !== "ADMIN") {
-    return { error: "Nuk keni leje për komente." };
+    return { error: t.errors.noComments };
   }
   const body = String(formData.get("body") || "").trim();
-  if (!body) return { error: "Komenti është bosh." };
+  if (!body) return { error: t.errors.commentEmpty };
 
   try {
     await assertClientInScope(ctx, clientId);
@@ -469,21 +475,22 @@ export async function addCommentAction(clientId: string, formData: FormData) {
     revalidatePath(`/clients/${clientId}`);
     return { ok: true };
   } catch (e) {
-    return { error: errMsg(e, "Gabim") };
+    return { error: errMsg(e, t.errors.genericError) };
   }
 }
 
 export async function deleteCommentAction(commentId: string, clientId: string) {
+  const t = await actionT();
   const ctx = await requireAuth();
   if (!ctx.user.permissions.commentsDelete && ctx.user.role !== "ADMIN") {
-    return { error: "Nuk keni leje për të fshirë komente." };
+    return { error: t.errors.noCommentDelete };
   }
   try {
     await assertClientInScope(ctx, clientId);
     const comment = await prisma.comment.findFirst({
       where: { id: commentId, clientId, deletedAt: null },
     });
-    if (!comment) return { error: "Komenti nuk u gjet." };
+    if (!comment) return { error: t.errors.commentNotFound };
 
     await prisma.comment.update({
       where: { id: commentId },
@@ -506,15 +513,16 @@ export async function deleteCommentAction(commentId: string, clientId: string) {
     revalidatePath("/recycle-bin");
     return { ok: true };
   } catch (e) {
-    return { error: errMsg(e, "Gabim") };
+    return { error: errMsg(e, t.errors.genericError) };
   }
 }
 
 export async function assignClientAction(formData: FormData) {
+  const t = await actionT();
   const ctx = await getAuthContext();
   if (!ctx) redirect("/login");
   if (!ctx.user.permissions.manageClients && ctx.user.role !== "ADMIN") {
-    return { error: "Nuk keni leje për caktime." };
+    return { error: t.errors.noAssign };
   }
 
   const clientId = String(formData.get("clientId") || "");
@@ -538,6 +546,6 @@ export async function assignClientAction(formData: FormData) {
     revalidatePath("/team");
     return { ok: true };
   } catch (e) {
-    return { error: errMsg(e, "Gabim") };
+    return { error: errMsg(e, t.errors.genericError) };
   }
 }

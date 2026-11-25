@@ -14,6 +14,7 @@ import {
   PermissionFlags,
   serializePermissions,
 } from "@/lib/permissions";
+import { actionT } from "@/lib/i18n/action-t";
 
 function permissionsFromForm(formData: FormData): PermissionFlags {
   const base = { ...DEFAULT_AGENT_PERMISSIONS };
@@ -34,9 +35,10 @@ const userSchema = z.object({
 });
 
 export async function createUserAction(formData: FormData) {
+  const t = await actionT();
   const ctx = await requireAuth();
   if (ctx.user.role !== "ADMIN" && !ctx.user.permissions.manageAgents) {
-    return { error: "Nuk keni leje për të krijuar përdorues." };
+    return { error: t.errors.noUserCreate };
   }
 
   const role = String(formData.get("role") || "AGENT") as
@@ -45,7 +47,7 @@ export async function createUserAction(formData: FormData) {
     | "AGENT";
 
   if (ctx.user.role === "MANAGER" && role !== "AGENT") {
-    return { error: "Menaxheri mund të krijojë vetëm agjentë." };
+    return { error: t.errors.managerAgentsOnly };
   }
 
   const password = String(formData.get("password") || "");
@@ -61,13 +63,13 @@ export async function createUserAction(formData: FormData) {
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message || "Të dhëna të pavlefshme" };
+    return { error: parsed.error.issues[0]?.message || t.errors.invalidData };
   }
 
   const exists = await prisma.user.findUnique({
     where: { email: parsed.data.email },
   });
-  if (exists) return { error: "Email ekziston tashmë." };
+  if (exists) return { error: t.errors.emailExists };
 
   let managerId = parsed.data.managerId;
   if (ctx.user.role === "MANAGER") {
@@ -85,7 +87,7 @@ export async function createUserAction(formData: FormData) {
 
   // Require explicit password (no predictable default)
   if (!String(formData.get("password") || "") || String(formData.get("password")).length < 8) {
-    return { error: "Fjalëkalimi duhet të ketë të paktën 8 karaktere." };
+    return { error: t.errors.passwordShort };
   }
 
   const user = await prisma.user.create({
@@ -113,17 +115,18 @@ export async function createUserAction(formData: FormData) {
 }
 
 export async function updateUserAction(userId: string, formData: FormData) {
+  const t = await actionT();
   const ctx = await requireAuth();
   if (ctx.user.role !== "ADMIN" && !ctx.user.permissions.manageAgents) {
-    return { error: "Nuk keni leje." };
+    return { error: t.errors.permissionDenied };
   }
 
   const target = await prisma.user.findUnique({ where: { id: userId } });
-  if (!target) return { error: "Përdoruesi nuk u gjet." };
+  if (!target) return { error: t.errors.userNotFound };
 
   if (ctx.user.role === "MANAGER") {
     if (target.role !== "AGENT" || target.managerId !== ctx.user.id) {
-      return { error: "Mund të menaxhoni vetëm agjentët e grupit tuaj." };
+      return { error: t.errors.outOfGroup };
     }
   }
 
@@ -161,9 +164,10 @@ export async function updateUserAction(userId: string, formData: FormData) {
 }
 
 export async function assignAgentToManagerAction(formData: FormData) {
+  const t = await actionT();
   const ctx = await requireAuth();
   if (ctx.user.role !== "ADMIN" && !ctx.user.permissions.manageAgents) {
-    return { error: "Nuk keni leje." };
+    return { error: t.errors.permissionDenied };
   }
 
   const agentId = String(formData.get("agentId") || "");
@@ -172,9 +176,9 @@ export async function assignAgentToManagerAction(formData: FormData) {
   if (ctx.user.role === "MANAGER") {
     // Managers can only add/remove agents in their own group
     const agent = await prisma.user.findUnique({ where: { id: agentId } });
-    if (!agent || agent.role !== "AGENT") return { error: "Agjent i pavlefshëm." };
+    if (!agent || agent.role !== "AGENT") return { error: t.errors.invalidAgent };
     if (agent.managerId && agent.managerId !== ctx.user.id && managerId !== ctx.user.id) {
-      return { error: "Agjenti i përket një grupi tjetër." };
+      return { error: t.errors.agentOtherGroup };
     }
     await prisma.user.update({
       where: { id: agentId },

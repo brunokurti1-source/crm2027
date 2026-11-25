@@ -5,40 +5,42 @@ import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logActivity, logAudit } from "@/lib/audit";
 import { assertClientInScope, ScopeError } from "@/lib/scope";
+import { actionT } from "@/lib/i18n/action-t";
 
 export async function bulkAssignClientsAction(formData: FormData): Promise<{
   ok?: boolean;
   error?: string;
   assigned?: number;
 }> {
+  const t = await actionT();
   const ctx = await requireAuth();
   if (!ctx.user.permissions.manageClients && ctx.user.role !== "ADMIN") {
-    return { error: "Nuk keni leje për caktim masiv." };
+    return { error: t.errors.bulkNoPermission };
   }
 
   const confirm = String(formData.get("confirm") || "");
   if (confirm !== "PO" && confirm !== "YES") {
-    return { error: "Shkruani PO për të konfirmuar caktimin masiv." };
+    return { error: t.errors.confirmYes };
   }
 
   const ids = formData
     .getAll("clientIds")
     .map(String)
     .filter(Boolean);
-  if (!ids.length) return { error: "Nuk u zgjodh asnjë klient." };
+  if (!ids.length) return { error: t.errors.bulkNone };
 
   const agentId = String(formData.get("agentId") || "") || null;
   const managerId = String(formData.get("managerId") || "") || null;
 
   if (ctx.user.role === "MANAGER") {
     if (managerId && managerId !== ctx.user.id) {
-      return { error: "Mund të caktoni vetëm në grupin tuaj." };
+      return { error: t.errors.bulkGroupOnly };
     }
     if (agentId) {
       const agent = await prisma.user.findFirst({
         where: { id: agentId, role: "AGENT", managerId: ctx.user.id },
       });
-      if (!agent) return { error: "Agjenti nuk është në grupin tuaj." };
+      if (!agent) return { error: t.errors.agentNotInYourGroup };
     }
   }
 
