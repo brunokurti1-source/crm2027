@@ -13,7 +13,7 @@ export default async function ClientsPage({
   searchParams: Promise<ClientFilters>;
 }) {
   const ctx = await requireAuth();
-  const { t } = await getDictionary();
+  const { locale, t } = await getDictionary();
   if (!ctx.user.permissions.clientView) {
     return <p className="flash-err">{t.clients.noPermission}</p>;
   }
@@ -93,7 +93,7 @@ export default async function ClientsPage({
               ).toString()}`}
               className="btn btn-secondary"
             >
-              Export
+              {t.common.export}
             </Link>
           )}
           {(ctx.user.permissions.clientAdd || ctx.user.role === "ADMIN") && (
@@ -120,17 +120,17 @@ export default async function ClientsPage({
               <option value="">{t.common.all}</option>
               {statuses.map((s) => (
                 <option key={s.code} value={s.code}>
-                  {s.labelSq}
+                  {t.status[s.code] || s.labelSq}
                 </option>
               ))}
             </select>
           </div>
           <div className="field">
-            <label>Shteti</label>
+<label>{t.clients.country}</label>
             <input name="country" defaultValue={filters.country || ""} />
           </div>
           <div className="field">
-            <label>Kredi min</label>
+<label>{t.clients.creditMin}</label>
             <input
               name="creditMin"
               defaultValue={filters.creditMin || ""}
@@ -139,7 +139,7 @@ export default async function ClientsPage({
             />
           </div>
           <div className="field">
-            <label>Kredi max</label>
+<label>{t.clients.creditMax}</label>
             <input
               name="creditMax"
               defaultValue={filters.creditMax || ""}
@@ -149,9 +149,9 @@ export default async function ClientsPage({
           </div>
           {agents.length > 0 && (
             <div className="field">
-              <label>Agjenti</label>
+<label>{t.clients.agent}</label>
               <select name="agentId" defaultValue={filters.agentId || ""}>
-                <option value="">Të gjithë</option>
+<option value="">{t.common.all}</option>
                 {agents.map((a) => (
                   <option key={a.id} value={a.id}>
                     {fullName(a.firstName, a.lastName)}
@@ -162,9 +162,9 @@ export default async function ClientsPage({
           )}
           {managers.length > 0 && (
             <div className="field">
-              <label>Menaxheri</label>
+<label>{t.clients.manager}</label>
               <select name="managerId" defaultValue={filters.managerId || ""}>
-                <option value="">Të gjithë</option>
+<option value="">{t.common.all}</option>
                 {managers.map((m) => (
                   <option key={m.id} value={m.id}>
                     {fullName(m.firstName, m.lastName)}
@@ -174,24 +174,24 @@ export default async function ClientsPage({
             </div>
           )}
           <div className="field">
-            <label>Rendit</label>
+<label>{t.clients.sort}</label>
             <select name="sort" defaultValue={filters.sort || "updated"}>
-              <option value="updated">Përditësuar</option>
-              <option value="name">Emri</option>
-              <option value="status">Statusi</option>
-              <option value="credit">Kredi</option>
-              <option value="registered">Regjistrimi</option>
-              <option value="contact">Kontakti i fundit</option>
+<option value="updated">{t.clients.sortUpdated}</option>
+<option value="name">{t.clients.sortName}</option>
+<option value="status">{t.clients.sortStatus}</option>
+<option value="credit">{t.clients.sortCredit}</option>
+<option value="registered">{t.clients.sortRegistered}</option>
+<option value="contact">{t.clients.sortContact}</option>
             </select>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <button className="btn btn-primary" type="submit">
-            Filtro
+            {t.common.filter}
           </button>
           {hasFilters ? (
             <Link href="/clients" className="btn btn-secondary">
-              Pastro filtrat
+              {t.clients.clearFilters}
             </Link>
           ) : null}
         </div>
@@ -254,35 +254,31 @@ export default async function ClientsPage({
                     {fullName(c.firstName, c.lastName)}
                   </div>
                   <div className="muted text-xs">
-                    {c.company || c.country || "—"}
+{c.company || c.country || t.common.none}
                   </div>
                 </td>
                 <td>
-                  <div>{c.phone || "—"}</div>
+<div>{c.phone || t.common.none}</div>
                   <div className="muted text-xs">{c.email || ""}</div>
                 </td>
                 <td>
                   <StatusBadge
                     code={c.status}
-                    label={
-                      c.statusRef?.labelSq ||
-                      t.status[c.status] ||
-                      c.status
-                    }
+                    label={t.status[c.status] || c.statusRef?.labelSq}
                   />
                 </td>
-                <td>{formatMoney(c.creditBalance)}</td>
+<td>{formatMoney(c.creditBalance, locale)}</td>
                 <td>
                   {c.agent
                     ? fullName(c.agent.firstName, c.agent.lastName)
-                    : "—"}
+                    : t.common.none}
                 </td>
                 <td>
                   {c.manager
                     ? fullName(c.manager.firstName, c.manager.lastName)
-                    : "—"}
+                    : t.common.none}
                 </td>
-                <td>{formatDate(c.registrationDate)}</td>
+<td>{formatDate(c.registrationDate, locale)}</td>
               </tr>
             ))}
             {!clients.length ? (

@@ -5,11 +5,13 @@ import { fullName } from "@/lib/format";
 import { assignAgentToManagerAction } from "@/app/actions/users";
 import { assignClientAction } from "@/app/actions/clients";
 import { startImpersonationAction } from "@/app/actions/auth";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export default async function TeamPage() {
   const ctx = await requireAuth();
+  const { t } = await getDictionary();
   if (ctx.user.role !== "ADMIN" && ctx.user.role !== "MANAGER") {
-    return <p className="text-[var(--danger)]">Nuk keni leje.</p>;
+    return <p className="text-[var(--danger)]">{t.team.noPermission}</p>;
   }
 
   const managers =
@@ -73,15 +75,19 @@ export default async function TeamPage() {
   const managersForAssign =
     ctx.user.role === "ADMIN"
       ? await prisma.user.findMany({ where: { role: "MANAGER", active: true } })
-      : [{ id: ctx.user.id, firstName: ctx.user.firstName, lastName: ctx.user.lastName }];
+      : [
+          {
+            id: ctx.user.id,
+            firstName: ctx.user.firstName,
+            lastName: ctx.user.lastName,
+          },
+        ];
 
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold">Ekipi</h1>
-        <p className="muted text-sm">
-          Agjentët, grupet e menaxherëve dhe ngarkesa e punës.
-        </p>
+        <h1 className="text-2xl font-bold">{t.team.title}</h1>
+        <p className="muted text-sm">{t.team.subtitle}</p>
       </div>
 
       <div className="grid gap-4">
@@ -93,8 +99,8 @@ export default async function TeamPage() {
                   {fullName(m.firstName, m.lastName)}
                 </h2>
                 <p className="muted text-sm">
-                  {m.email} · {m._count.managedClients} klientë · {m.agents.length}{" "}
-                  agjentë
+                  {m.email} · {m._count.managedClients} {t.team.clients} ·{" "}
+                  {m.agents.length} {t.team.agents}
                 </p>
               </div>
               {(ctx.realUser.permissions.impersonate ||
@@ -103,7 +109,7 @@ export default async function TeamPage() {
                   <form action={startImpersonationAction}>
                     <input type="hidden" name="targetUserId" value={m.id} />
                     <button className="btn btn-secondary" type="submit">
-                      Impersono menaxherin
+                      {t.impersonation.impersonateManager}
                     </button>
                   </form>
                 )}
@@ -111,10 +117,10 @@ export default async function TeamPage() {
             <table className="table text-sm">
               <thead>
                 <tr>
-                  <th>Agjenti</th>
-                  <th>Statusi</th>
-                  <th>Klientë</th>
-                  <th>Takime</th>
+                  <th>{t.team.agent}</th>
+                  <th>{t.team.status}</th>
+                  <th>{t.team.clients}</th>
+                  <th>{t.team.meetings}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -122,21 +128,30 @@ export default async function TeamPage() {
                 {m.agents.map((a) => (
                   <tr key={a.id}>
                     <td>
-                      <Link href={`/users/${a.id}`} className="text-[var(--brand)]">
+                      <Link
+                        href={`/users/${a.id}`}
+                        className="text-[var(--brand)]"
+                      >
                         {fullName(a.firstName, a.lastName)}
                       </Link>
                       <div className="muted text-xs">{a.email}</div>
                     </td>
-                    <td>{a.active ? "Aktiv" : "Joaktiv"}</td>
+                    <td>
+                      {a.active ? t.common.active : t.common.inactive}
+                    </td>
                     <td>{a._count.assignedClients}</td>
                     <td>{a._count.meetings}</td>
                     <td>
                       {(ctx.realUser.permissions.impersonate ||
                         ctx.realUser.role === "ADMIN") && (
                         <form action={startImpersonationAction}>
-                          <input type="hidden" name="targetUserId" value={a.id} />
+                          <input
+                            type="hidden"
+                            name="targetUserId"
+                            value={a.id}
+                          />
                           <button className="btn btn-secondary" type="submit">
-                            Impersono
+                            {t.impersonation.impersonate}
                           </button>
                         </form>
                       )}
@@ -146,7 +161,7 @@ export default async function TeamPage() {
                 {!m.agents.length ? (
                   <tr>
                     <td colSpan={5} className="muted">
-                      Nuk ka agjentë në këtë grup
+                      {t.team.noAgents}
                     </td>
                   </tr>
                 ) : null}
@@ -158,7 +173,7 @@ export default async function TeamPage() {
 
       {ctx.user.role === "ADMIN" && unassignedAgents.length > 0 && (
         <section className="card p-4 space-y-3">
-          <h2 className="font-semibold">Agjentë pa menaxher</h2>
+          <h2 className="font-semibold">{t.team.unassigned}</h2>
           {unassignedAgents.map((a) => (
             <form
               key={a.id}
@@ -173,7 +188,7 @@ export default async function TeamPage() {
                 <label>{fullName(a.firstName, a.lastName)}</label>
                 <select name="managerId" required defaultValue="">
                   <option value="" disabled>
-                    Zgjidh menaxherin
+                    {t.team.chooseManager}
                   </option>
                   {managers.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -183,7 +198,7 @@ export default async function TeamPage() {
                 </select>
               </div>
               <button className="btn btn-primary" type="submit">
-                Cakto
+                {t.team.assign}
               </button>
             </form>
           ))}
@@ -192,21 +207,24 @@ export default async function TeamPage() {
 
       {(ctx.user.permissions.manageClients || ctx.user.role === "ADMIN") && (
         <section className="card p-4 space-y-3">
-          <h2 className="font-semibold">Cakto klientë</h2>
+          <h2 className="font-semibold">{t.team.assignClients}</h2>
           <div className="overflow-x-auto">
             <table className="table text-sm">
               <thead>
                 <tr>
-                  <th>Klienti</th>
-                  <th>Agjenti aktual</th>
-                  <th>Caktim i ri</th>
+                  <th>{t.team.client}</th>
+                  <th>{t.team.currentAgent}</th>
+                  <th>{t.team.newAssignment}</th>
                 </tr>
               </thead>
               <tbody>
                 {clients.slice(0, 20).map((c) => (
                   <tr key={c.id}>
                     <td>
-                      <Link href={`/clients/${c.id}`} className="text-[var(--brand)]">
+                      <Link
+                        href={`/clients/${c.id}`}
+                        className="text-[var(--brand)]"
+                      >
                         {c.clientIdNumber}
                       </Link>{" "}
                       {fullName(c.firstName, c.lastName)}
@@ -214,7 +232,7 @@ export default async function TeamPage() {
                     <td>
                       {c.agent
                         ? fullName(c.agent.firstName, c.agent.lastName)
-                        : "—"}
+                        : t.common.none}
                     </td>
                     <td>
                       <form
@@ -226,15 +244,18 @@ export default async function TeamPage() {
                       >
                         <input type="hidden" name="clientId" value={c.id} />
                         <select name="agentId" defaultValue={c.agentId || ""}>
-                          <option value="">—</option>
+                          <option value="">{t.common.none}</option>
                           {agentsForAssign.map((a) => (
                             <option key={a.id} value={a.id}>
                               {fullName(a.firstName, a.lastName)}
                             </option>
                           ))}
                         </select>
-                        <select name="managerId" defaultValue={c.managerId || ""}>
-                          <option value="">—</option>
+                        <select
+                          name="managerId"
+                          defaultValue={c.managerId || ""}
+                        >
+                          <option value="">{t.common.none}</option>
                           {managersForAssign.map((m) => (
                             <option key={m.id} value={m.id}>
                               {fullName(m.firstName, m.lastName)}
@@ -242,7 +263,7 @@ export default async function TeamPage() {
                           ))}
                         </select>
                         <button className="btn btn-secondary" type="submit">
-                          Ruaj
+                          {t.common.save}
                         </button>
                       </form>
                     </td>

@@ -1,59 +1,45 @@
 import { requireAuth } from "@/lib/auth";
 import Link from "next/link";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export default async function IntegrationDocsPage() {
   const ctx = await requireAuth();
+  const { t } = await getDictionary();
   if (ctx.user.role !== "ADMIN" && ctx.user.role !== "MANAGER") {
-    return <p className="flash-err">Nuk keni leje.</p>;
+    return <p className="flash-err">{t.integrationsPage.noPermission}</p>;
   }
 
   return (
     <div className="space-y-4 max-w-3xl">
       <div>
         <Link href="/settings/integrations" className="text-sm muted">
-          ← Integrimet
+          {t.docsPage.back}
         </Link>
-        <h1 className="page-title mt-1">Dokumentimi i API &amp; webhook</h1>
-        <p className="page-sub">
-          Si të lidhni një sistem të ri me CRM-në, me ndarje sipas menaxherit.
-        </p>
+        <h1 className="page-title mt-1">{t.docsPage.title}</h1>
+        <p className="page-sub">{t.docsPage.subtitle}</p>
       </div>
 
       <section className="card p-4 space-y-2 text-sm">
-        <h2 className="font-semibold">1. Krijoni grupin</h2>
+        <h2 className="font-semibold">{t.docsPage.s1}</h2>
         <ol className="list-decimal pl-5 space-y-1">
-          <li>Administratori krijon menaxherin dhe agjentët e tij.</li>
-          <li>
-            Cakton klientët te agjentët; menaxheri sheh vetëm grupin e vet.
-          </li>
-          <li>
-            Në <strong>Integrimet</strong> krijon një integrim dhe e lidh me atë
-            menaxher + agjentët e lejuar.
-          </li>
+          <li>{t.docsPage.s1a}</li>
+          <li>{t.docsPage.s1b}</li>
+          <li>{t.docsPage.s1c}</li>
         </ol>
       </section>
 
       <section className="card p-4 space-y-2 text-sm">
-        <h2 className="font-semibold">2. Autentikimi</h2>
+        <h2 className="font-semibold">{t.docsPage.s2}</h2>
         <ul className="list-disc pl-5 space-y-1">
-          <li>
-            <code>X-API-Key</code> ose <code>Authorization: Bearer …</code> për
-            API-në e CRM-së (<code>/api/v1/clients</code>).
-          </li>
-          <li>
-            Çelësi i integrimit (i shfaqur një herë) me header{" "}
-            <code>X-Integration-Key</code> për webhook hyrës.
-          </li>
-          <li>
-            API key e lidhur me menaxher kufizon leximin/shkrimin vetëm te grupi
-            i tij.
-          </li>
-          <li>Kredencialet e partnerit ruhen të enkriptuara; nuk logohen.</li>
+          <li>{t.docsPage.s2a}</li>
+          <li>{t.docsPage.s2b}</li>
+          <li>{t.docsPage.s2c}</li>
+          <li>{t.docsPage.s2d}</li>
         </ul>
       </section>
 
       <section className="card p-4 space-y-2 text-sm">
-        <h2 className="font-semibold">3. Webhook hyrës</h2>
+        <h2 className="font-semibold">{t.docsPage.s3}</h2>
         <pre className="text-xs overflow-x-auto bg-[var(--surface-2)] p-3 rounded">
 {`POST /api/integrations/{integrationId}/inbound
 X-Integration-Key: int_…
@@ -66,17 +52,14 @@ Content-Type: application/json
   "email": "ana@example.com",
   "phone": "+355…",
   "status": "HIGH_POTENTIAL",
-  "agentEmail": "agjent1@crm.local"
+  "agentEmail": "agent1@crm.local"
 }`}
         </pre>
-        <p>
-          Fushat hartohen sipas JSON-it të konfigurimit. Nëse menaxheri/agjenti
-          nuk përcaktohet, rekordi shkon te <em>Lista e pritjes</em>.
-        </p>
+        <p>{t.docsPage.s3body}</p>
       </section>
 
       <section className="card p-4 space-y-2 text-sm">
-        <h2 className="font-semibold">4. API REST e CRM-së</h2>
+        <h2 className="font-semibold">{t.docsPage.s4}</h2>
         <pre className="text-xs overflow-x-auto bg-[var(--surface-2)] p-3 rounded">
 {`GET  /api/v1/clients?q=&status=&limit=50
 POST /api/v1/clients
@@ -84,70 +67,43 @@ PATCH /api/v1/clients/{id|clientIdNumber}
 
 Headers: X-API-Key: …`}
         </pre>
-        <p>
-          Dublikatat kthejnë <code>409</code> me listën e përputhjeve; dërgoni{" "}
-          <code>acknowledgeDuplicates: true</code> pas kontrollit.
-        </p>
+        <p>{t.docsPage.s4body}</p>
       </section>
 
       <section className="card p-4 space-y-2 text-sm">
-        <h2 className="font-semibold">5. Dalje (outbound)</h2>
-        <p>
-          Kur klienti ndryshohet në CRM, sistemet me drejtim OUTBOUND /
-          BIDIRECTIONAL dhe sync aktiv marrin një POST në <code>baseUrl</code>{" "}
-          me fushat e hartuara. Dështimet logohen dhe mund të riprovohen.
-        </p>
+        <h2 className="font-semibold">{t.docsPage.s5}</h2>
+        <p>{t.docsPage.s5body}</p>
       </section>
 
       <section className="card p-4 space-y-2 text-sm">
-        <h2 className="font-semibold">6. Konflikte &amp; dublikata</h2>
+        <h2 className="font-semibold">{t.docsPage.s6}</h2>
         <ul className="list-disc pl-5 space-y-1">
-          <li>
-            Identiteti i qëndrueshëm: <code>externalId</code> për integrim +{" "}
-            <code>clientIdNumber</code>.
-          </li>
-          <li>
-            Politika: CRM_WINS / REMOTE_WINS / NEWEST_WINS.
-          </li>
-          <li>
-            Ndryshimi ndër-grupesh (menaxher tjetër) nuk mbishkruhet — shkon në
-            pritje.
-          </li>
+          <li>{t.docsPage.s6a}</li>
+          <li>{t.docsPage.s6b}</li>
+          <li>{t.docsPage.s6c}</li>
         </ul>
       </section>
 
       <section className="card p-4 space-y-2 text-sm">
-        <h2 className="font-semibold">7. Sinkronizim me interval &amp; riprovim</h2>
-        <p>
-          Vendosni <code>syncIntervalMinutes</code> dhe aktivizoni sinkronizimin.
-          Cron i jashtëm (ose butoni «Ekzekuto intervalet») thërret:
-        </p>
+        <h2 className="font-semibold">{t.docsPage.s7}</h2>
+        <p>{t.docsPage.s7body}</p>
         <pre className="text-xs overflow-x-auto bg-[var(--surface-2)] p-3 rounded">
 {`POST /api/integrations/tick
 X-Cron-Secret: $INTEGRATION_CRON_SECRET
 
-# ose si admin i autentikuar (cookie session)`}
+# or authenticated admin session (cookie)`}
         </pre>
-        <p>
-          Integrimet me status <code>ERROR</code> riproven automatikisht në tick
-          (minimum 5 minuta). Raportet e suksesit/gabimit shfaqen te detaji i
-          integrimit (runs + logje pa sekrete).
-        </p>
+        <p>{t.docsPage.s7extra}</p>
       </section>
 
       <section className="card p-4 space-y-2 text-sm">
-        <h2 className="font-semibold">8. Hapa për një sistem të ri</h2>
+        <h2 className="font-semibold">{t.docsPage.s8}</h2>
         <ol className="list-decimal pl-5 space-y-1">
-          <li>Krijoni menaxherin/grupin dhe agjentët.</li>
-          <li>
-            Shtoni integrimin: URL, drejtimi, auth (API key / Bearer / OAuth),
-            hartëzimi i fushave, politika e konflikteve.
-          </li>
-          <li>Ruani çelësin hyrës që shfaqet një herë (X-Integration-Key).</li>
-          <li>Provoni lidhjen, aktivizoni sync, dërgoni një webhook prove.</li>
-          <li>
-            Kontrolloni listën e pritjes nëse caktimi i menaxherit mungon.
-          </li>
+          <li>{t.docsPage.s8a}</li>
+          <li>{t.docsPage.s8b}</li>
+          <li>{t.docsPage.s8c}</li>
+          <li>{t.docsPage.s8d}</li>
+          <li>{t.docsPage.s8e}</li>
         </ol>
       </section>
     </div>

@@ -3,14 +3,16 @@ import { notFound } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { IntegrationDetailActions } from "../forms";
 
 type Params = { params: Promise<{ id: string }> };
 
 export default async function IntegrationDetailPage({ params }: Params) {
   const ctx = await requireAuth();
+  const { t } = await getDictionary();
   if (ctx.user.role !== "ADMIN" && ctx.user.role !== "MANAGER") {
-    return <p className="flash-err">Nuk keni leje.</p>;
+    return <p className="flash-err">{t.integrationsPage.noPermission}</p>;
   }
 
   const { id } = await params;
@@ -21,7 +23,7 @@ export default async function IntegrationDetailPage({ params }: Params) {
     ctx.user.role === "MANAGER" &&
     integration.managerId !== ctx.user.id
   ) {
-    return <p className="flash-err">Nuk keni akses në këtë integrim.</p>;
+    return <p className="flash-err">{t.integrationsPage.accessDenied}</p>;
   }
 
   const [runs, logs, managers, agents] = await Promise.all([
@@ -56,12 +58,13 @@ export default async function IntegrationDetailPage({ params }: Params) {
     <div className="space-y-4">
       <div>
         <Link href="/settings/integrations" className="text-sm muted">
-          ← Integrimet
+          {t.integrationsPage.back}
         </Link>
         <h1 className="page-title mt-1">{integration.name}</h1>
         <p className="page-sub">
-          {integration.description || "Pa përshkrim"} · prefix çelësi:{" "}
-          {integration.inboundKeyPrefix || "—"}…
+          {integration.description || t.integrationsPage.noDescription} ·{" "}
+          {t.integrationsPage.keyPrefix}:{" "}
+          {integration.inboundKeyPrefix || t.common.none}…
         </p>
       </div>
 
@@ -80,19 +83,19 @@ export default async function IntegrationDetailPage({ params }: Params) {
       />
 
       <section className="card p-4">
-        <h2 className="font-semibold mb-3">Raporti i sinkronizimeve</h2>
+        <h2 className="font-semibold mb-3">{t.integrationsPage.runs}</h2>
         <div className="overflow-x-auto">
           <table className="table text-sm">
             <thead>
               <tr>
-                <th>Fillimi</th>
-                <th>Trigger</th>
-                <th>Statusi</th>
+                <th>{t.integrationsPage.started}</th>
+                <th>{t.integrationsPage.trigger}</th>
+                <th>{t.integrationsPage.status}</th>
                 <th>+</th>
                 <th>~</th>
-                <th>Skip</th>
-                <th>Fail</th>
-                <th>Gabimi</th>
+                <th>{t.integrationsPage.skipped}</th>
+                <th>{t.integrationsPage.failed}</th>
+                <th>{t.common.error}</th>
               </tr>
             </thead>
             <tbody>
@@ -107,13 +110,13 @@ export default async function IntegrationDetailPage({ params }: Params) {
                   <td>{r.updatedCount}</td>
                   <td>{r.skippedCount}</td>
                   <td>{r.failedCount}</td>
-                  <td className="muted">{r.errorSummary || "—"}</td>
+                  <td className="muted">{r.errorSummary || t.common.none}</td>
                 </tr>
               ))}
               {!runs.length ? (
                 <tr>
                   <td colSpan={8} className="muted">
-                    Nuk ka ekzekutime ende.
+                    {t.integrationsPage.noRuns}
                   </td>
                 </tr>
               ) : null}
@@ -123,7 +126,7 @@ export default async function IntegrationDetailPage({ params }: Params) {
       </section>
 
       <section className="card p-4">
-        <h2 className="font-semibold mb-3">Logje (pa sekrete)</h2>
+        <h2 className="font-semibold mb-3">{t.integrationsPage.logs}</h2>
         <ul className="space-y-2 text-sm">
           {logs.map((l) => (
             <li key={l.id} className="border-b border-[var(--line-soft)] pb-2">
@@ -135,7 +138,9 @@ export default async function IntegrationDetailPage({ params }: Params) {
               <div className="muted text-xs">{formatDateTime(l.createdAt)}</div>
             </li>
           ))}
-          {!logs.length ? <li className="muted">Nuk ka logje.</li> : null}
+          {!logs.length ? (
+            <li className="muted">{t.integrationsPage.noLogs}</li>
+          ) : null}
         </ul>
       </section>
     </div>

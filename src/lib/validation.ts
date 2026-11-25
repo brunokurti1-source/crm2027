@@ -5,7 +5,7 @@ const phoneRegex = /^\+?[0-9\s\-()]{6,20}$/;
 export const emailSchema = z
   .string()
   .trim()
-  .email("Email i pavlefshëm")
+  .email("Invalid email")
   .or(z.literal(""))
   .nullable()
   .optional();
@@ -13,7 +13,7 @@ export const emailSchema = z
 export const phoneSchema = z
   .string()
   .trim()
-  .regex(phoneRegex, "Telefon i pavlefshëm")
+  .regex(phoneRegex, "Invalid phone")
   .or(z.literal(""))
   .nullable()
   .optional();
@@ -21,16 +21,16 @@ export const phoneSchema = z
 export const clientIdSchema = z
   .string()
   .trim()
-  .min(1, "ID e klientit është e detyrueshme")
-  .max(64, "ID shumë e gjatë")
-  .regex(/^[A-Za-z0-9._\-]+$/, "ID lejon vetëm shkronja, numra, . _ -");
+  .min(1, "Client ID is required")
+  .max(64, "ID too long")
+  .regex(/^[A-Za-z0-9._\-]+$/, "ID allows only letters, numbers, . _ -");
 
-export const moneySchema = z.coerce.number().finite("Shuma e pavlefshme");
+export const moneySchema = z.coerce.number().finite("Invalid amount");
 
 export const clientUpsertSchema = z.object({
   clientIdNumber: clientIdSchema,
-  firstName: z.string().trim().min(1, "Emri është i detyrueshëm").max(100),
-  lastName: z.string().trim().min(1, "Mbiemri është i detyrueshëm").max(100),
+  firstName: z.string().trim().min(1, "First name is required").max(100),
+  lastName: z.string().trim().min(1, "Last name is required").max(100),
   phone: phoneSchema,
   email: emailSchema,
   company: z.string().trim().max(200).nullable().optional(),

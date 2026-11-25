@@ -20,22 +20,22 @@ export async function assertClientInScope(
 }> {
   const client = await prisma.client.findUnique({ where: { id: clientId } });
   if (!client || client.deletedAt) {
-    throw new ScopeError("Klienti nuk u gjet.");
+    throw new ScopeError("Client not found.");
   }
 
   if (ctx.user.role === "ADMIN") return client;
 
   if (ctx.user.role === "MANAGER") {
     if (client.managerId === ctx.user.id) return client;
-    throw new ScopeError("Nuk keni akses në këtë klient.");
+    throw new ScopeError("You do not have access to this client.");
   }
 
   if (ctx.user.role === "AGENT") {
     if (client.agentId === ctx.user.id) return client;
-    throw new ScopeError("Nuk keni akses në këtë klient.");
+    throw new ScopeError("You do not have access to this client.");
   }
 
-  throw new ScopeError("Nuk keni akses në këtë klient.");
+  throw new ScopeError("You do not have access to this client.");
 }
 
 export class ScopeError extends Error {

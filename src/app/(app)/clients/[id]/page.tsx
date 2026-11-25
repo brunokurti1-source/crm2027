@@ -2,16 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireAuth, clientScopeWhere } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { STATUS_LABELS } from "@/lib/permissions";
 import { formatDate, formatDateTime, formatMoney, fullName } from "@/lib/format";
 import { ClientDetailActions } from "./actions-panel";
 import { StatusBadge } from "@/components/status-badge";
 import { ClientQuickActions } from "@/components/client-quick-actions";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 type Params = { params: Promise<{ id: string }> };
 
 export default async function ClientDetailPage({ params }: Params) {
   const ctx = await requireAuth();
+  const { locale, t } = await getDictionary();
   const { id } = await params;
 
   const client = await prisma.client.findFirst({
@@ -82,7 +83,7 @@ export default async function ClientDetailPage({ params }: Params) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link href="/clients" className="text-sm text-[var(--brand)]">
-            ← Klientët
+            {t.clients.backToClients}
           </Link>
           <h1 className="page-title mt-1">
             {fullName(client.firstName, client.lastName)}
@@ -91,11 +92,13 @@ export default async function ClientDetailPage({ params }: Params) {
             <span className="badge">{client.clientIdNumber}</span>
             <StatusBadge
               code={client.status}
-              label={client.statusRef?.labelSq || STATUS_LABELS[client.status]}
+              label={t.status[client.status] || client.statusRef?.labelSq}
             />
-            <span className="badge">{formatMoney(client.creditBalance)}</span>
+<span className="badge">
+              {formatMoney(client.creditBalance, locale)}
+            </span>
             {client.archived ? (
-              <span className="badge badge-warn">Arkivuar</span>
+<span className="badge badge-warn">{t.common.archived}</span>
             ) : null}
           </div>
         </div>
@@ -115,81 +118,81 @@ export default async function ClientDetailPage({ params }: Params) {
         <section className="card p-4 lg:col-span-2 space-y-4">
           <div>
             <h2 className="font-semibold text-[var(--ink-strong)]">
-              Të dhënat e kontaktit
+              {t.clients.contactData}
             </h2>
             <dl className="grid sm:grid-cols-2 gap-3 text-sm mt-2">
               <div>
-                <dt className="muted">Telefon</dt>
-                <dd>{client.phone || "—"}</dd>
+<dt className="muted">{t.clients.phone}</dt>
+<dd>{client.phone || t.common.none}</dd>
               </div>
               <div>
-                <dt className="muted">Email</dt>
-                <dd>{client.email || "—"}</dd>
+<dt className="muted">{t.clients.email}</dt>
+<dd>{client.email || t.common.none}</dd>
               </div>
               <div>
-                <dt className="muted">Kompania</dt>
-                <dd>{client.company || "—"}</dd>
+<dt className="muted">{t.clients.company}</dt>
+<dd>{client.company || t.common.none}</dd>
               </div>
               <div>
-                <dt className="muted">Adresa</dt>
-                <dd>{client.address || "—"}</dd>
+<dt className="muted">{t.clients.address}</dt>
+<dd>{client.address || t.common.none}</dd>
               </div>
               <div>
-                <dt className="muted">Shteti</dt>
-                <dd>{client.country || "—"}</dd>
+<dt className="muted">{t.clients.country}</dt>
+<dd>{client.country || t.common.none}</dd>
               </div>
               <div>
-                <dt className="muted">Burimi</dt>
-                <dd>{client.leadSource || "—"}</dd>
+<dt className="muted">{t.clients.leadSource}</dt>
+<dd>{client.leadSource || t.common.none}</dd>
               </div>
             </dl>
           </div>
           <div className="border-t border-[var(--line-soft)] pt-3">
             <h2 className="font-semibold text-[var(--ink-strong)]">
-              Statusi & llogaria
+              {t.clients.statusAndAccount}
             </h2>
             <dl className="grid sm:grid-cols-2 gap-3 text-sm mt-2">
               <div>
-                <dt className="muted">Statusi</dt>
+<dt className="muted">{t.clients.status}</dt>
                 <dd>
                   <StatusBadge
                     code={client.status}
                     label={
-                      client.statusRef?.labelSq || STATUS_LABELS[client.status]
+                      t.status[client.status] || client.statusRef?.labelSq
                     }
                   />
                 </dd>
               </div>
               <div>
-                <dt className="muted">Gjendja e llogarisë</dt>
-                <dd>{formatMoney(client.creditBalance)}</dd>
+<dt className="muted">{t.clients.accountBalance}</dt>
+<dd>{formatMoney(client.creditBalance, locale)}</dd>
               </div>
               <div>
-                <dt className="muted">Agjenti</dt>
+<dt className="muted">{t.clients.agent}</dt>
                 <dd>
                   {client.agent
                     ? fullName(client.agent.firstName, client.agent.lastName)
-                    : "—"}
+                    : t.common.none}
                 </dd>
               </div>
               <div>
-                <dt className="muted">Menaxheri</dt>
+<dt className="muted">{t.clients.manager}</dt>
                 <dd>
                   {client.manager
                     ? fullName(
                         client.manager.firstName,
                         client.manager.lastName,
                       )
-                    : "—"}
+                    : t.common.none}
                 </dd>
               </div>
               <div>
-                <dt className="muted">Regjistruar</dt>
-                <dd>{formatDate(client.registrationDate)}</dd>
+<dt className="muted">{t.clients.registered}</dt>
+<dd>{formatDate(client.registrationDate, locale)}</dd>
               </div>
               <div>
-                <dt className="muted">Kontakti i fundit</dt>
-                <dd>{formatDateTime(client.lastContactAt)}</dd>
+<dt className="muted">{t.clients.lastContact}</dt>
+<dd>{formatDateTime(client.lastContactAt, locale)}</dd>
               </div>
             </dl>
             {client.notes ? (
@@ -227,7 +230,7 @@ export default async function ClientDetailPage({ params }: Params) {
           }))}
           statuses={statuses.map((s) => ({
             id: s.code,
-            label: s.labelSq,
+            label: t.status[s.code] || s.labelSq,
           }))}
           permissions={{
             canEdit: ctx.user.permissions.clientEdit || ctx.user.role === "ADMIN",
@@ -252,29 +255,31 @@ export default async function ClientDetailPage({ params }: Params) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="card p-4">
-          <h2 className="font-semibold mb-3">Komentet</h2>
+<h2 className="font-semibold mb-3">{t.clients.comments}</h2>
           <ul className="space-y-3 text-sm">
             {client.comments.map((c) => (
               <li key={c.id} className="border-b border-[var(--line-soft)] pb-2">
                 <div>{c.body}</div>
                 <div className="muted text-xs">
                   {fullName(c.author.firstName, c.author.lastName)} ·{" "}
-                  {formatDateTime(c.createdAt)}
+{formatDateTime(c.createdAt, locale)}
                 </div>
               </li>
             ))}
             {!client.comments.length ? (
-              <li className="muted">Nuk ka komente</li>
+<li className="muted">{t.clients.noComments}</li>
             ) : null}
           </ul>
         </section>
 
         <section className="card p-4">
-          <h2 className="font-semibold mb-3">Takimet</h2>
+<h2 className="font-semibold mb-3">{t.clients.meetings}</h2>
           <ul className="space-y-3 text-sm">
             {client.meetings.map((m) => (
               <li key={m.id} className="border-b border-[var(--line-soft)] pb-2">
-                <div className="font-medium">{formatDateTime(m.scheduledAt)}</div>
+<div className="font-medium">
+                  {formatDateTime(m.scheduledAt, locale)}
+                </div>
                 <div className="muted">
                   <span className="badge">{m.status}</span> ·{" "}
                   {fullName(m.agent.firstName, m.agent.lastName)}
@@ -283,7 +288,7 @@ export default async function ClientDetailPage({ params }: Params) {
               </li>
             ))}
             {!client.meetings.length ? (
-              <li className="muted">Nuk ka takime</li>
+<li className="muted">{t.clients.noMeetings}</li>
             ) : null}
           </ul>
         </section>
@@ -291,36 +296,38 @@ export default async function ClientDetailPage({ params }: Params) {
 
       {canViewCredits ? (
         <section className="card p-4">
-          <h2 className="font-semibold mb-3">Historiku i kredive</h2>
+<h2 className="font-semibold mb-3">{t.clients.creditHistory}</h2>
           <div className="overflow-x-auto">
             <table className="table text-sm">
               <thead>
                 <tr>
-                  <th>Kur</th>
-                  <th>Lloji</th>
-                  <th>Shuma</th>
-                  <th>Para</th>
-                  <th>Pas</th>
-                  <th>Kush</th>
-                  <th>Arsyeja</th>
+<th>{t.clients.when}</th>
+<th>{t.common.type}</th>
+<th>{t.common.amount}</th>
+<th>{t.clients.beforeBalance}</th>
+<th>{t.clients.afterBalance}</th>
+<th>{t.clients.who}</th>
+<th>{t.common.reason}</th>
                 </tr>
               </thead>
               <tbody>
                 {client.creditEntries.map((e) => (
                   <tr key={e.id}>
-                    <td>{formatDateTime(e.createdAt)}</td>
+<td>{formatDateTime(e.createdAt, locale)}</td>
                     <td>
                       <span className="badge">
-                        {e.direction === "ADD" ? "Shtim" : "Heqje"}
+{e.direction === "ADD"
+                          ? t.clients.creditAdd
+                          : t.clients.creditRemove}
                       </span>
                     </td>
-                    <td>{formatMoney(e.amount)}</td>
-                    <td>{formatMoney(e.previousBalance)}</td>
-                    <td>{formatMoney(e.newBalance)}</td>
+<td>{formatMoney(e.amount, locale)}</td>
+<td>{formatMoney(e.previousBalance, locale)}</td>
+<td>{formatMoney(e.newBalance, locale)}</td>
                     <td>
                       {e.actor
                         ? fullName(e.actor.firstName, e.actor.lastName)
-                        : "—"}
+                        : t.common.none}
                     </td>
                     <td>{e.reason}</td>
                   </tr>
@@ -328,7 +335,7 @@ export default async function ClientDetailPage({ params }: Params) {
                 {!client.creditEntries.length ? (
                   <tr>
                     <td colSpan={7} className="muted">
-                      Nuk ka lëvizje kredie
+                      {t.clients.noCreditMoves}
                     </td>
                   </tr>
                 ) : null}
@@ -339,7 +346,7 @@ export default async function ClientDetailPage({ params }: Params) {
       ) : null}
 
       <section className="card p-4">
-        <h2 className="font-semibold mb-3">Historia e aktivitetit</h2>
+<h2 className="font-semibold mb-3">{t.clients.history}</h2>
         <ul className="space-y-3 text-sm">
           {client.activityLogs.map((a) => (
             <li key={a.id} className="border-b border-[var(--line-soft)] pb-2">
@@ -348,11 +355,11 @@ export default async function ClientDetailPage({ params }: Params) {
                 <span>{a.description}</span>
               </div>
               <div className="muted text-xs">
-                {formatDateTime(a.createdAt)}
+{formatDateTime(a.createdAt, locale)}
                 {a.actor
                   ? ` · ${fullName(a.actor.firstName, a.actor.lastName)}`
                   : ""}
-                {a.viaImpersonationOf ? " · gjatë impersonimit" : ""}
+                {a.viaImpersonationOf ? t.clients.viaImpersonation : ""}
               </div>
             </li>
           ))}

@@ -3,9 +3,13 @@ import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatDateTime, fullName } from "@/lib/format";
 import { createTaskAction, updateTaskStatusAction } from "@/app/actions/tasks";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
+import type { Locale } from "@/lib/i18n/config";
+import type { Messages } from "@/lib/i18n/messages/en";
 
 export default async function TasksPage() {
   const ctx = await requireAuth();
+  const { locale, t } = await getDictionary();
   const now = new Date();
 
   const tasks = await prisma.task.findMany({
@@ -48,18 +52,18 @@ export default async function TasksPage() {
   });
 
   const overdue = tasks.filter(
-    (t) => t.status === "OPEN" && t.dueAt < now,
+    (task) => task.status === "OPEN" && task.dueAt < now,
   );
   const upcoming = tasks.filter(
-    (t) => t.status === "OPEN" && t.dueAt >= now,
+    (task) => task.status === "OPEN" && task.dueAt >= now,
   );
 
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="page-title">Detyrat</h1>
+        <h1 className="page-title">{t.tasks.title}</h1>
         <p className="page-sub">
-          Telefonata, email dhe ndjekje — {overdue.length} të vonuara.
+          {t.tasks.subtitle} — {overdue.length} {t.tasks.overdue}.
         </p>
       </div>
 
@@ -68,22 +72,22 @@ export default async function TasksPage() {
         className="card p-4 grid gap-3 md:grid-cols-3"
       >
         <div className="field md:col-span-2">
-          <label>Titulli</label>
+          <label>{t.common.title}</label>
           <input name="title" required />
         </div>
         <div className="field">
-          <label>Lloji</label>
+          <label>{t.common.type}</label>
           <select name="type" defaultValue="FOLLOW_UP">
-            <option value="CALL">Telefonatë</option>
-            <option value="EMAIL">Email</option>
-            <option value="FOLLOW_UP">Ndjekje</option>
-            <option value="OTHER">Tjetër</option>
+            <option value="CALL">{t.tasks.call}</option>
+            <option value="EMAIL">{t.tasks.email}</option>
+            <option value="FOLLOW_UP">{t.tasks.followUp}</option>
+            <option value="OTHER">{t.tasks.other}</option>
           </select>
         </div>
         <div className="field">
-          <label>Klienti</label>
+          <label>{t.tasks.client}</label>
           <select name="clientId" defaultValue="">
-            <option value="">—</option>
+            <option value="">{t.common.none}</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.clientIdNumber} — {fullName(c.firstName, c.lastName)}
@@ -92,38 +96,38 @@ export default async function TasksPage() {
           </select>
         </div>
         <div className="field">
-          <label>Data</label>
+          <label>{t.common.date}</label>
           <input name="date" type="date" required />
         </div>
         <div className="field">
-          <label>Ora</label>
+          <label>{t.common.time}</label>
           <input name="time" type="time" defaultValue="10:00" />
         </div>
         <div className="field">
-          <label>Prioriteti</label>
+          <label>{t.common.priority}</label>
           <select name="priority" defaultValue="MEDIUM">
-            <option value="LOW">I ulët</option>
-            <option value="MEDIUM">Mesatar</option>
-            <option value="HIGH">I lartë</option>
+            <option value="LOW">{t.tasks.low}</option>
+            <option value="MEDIUM">{t.tasks.medium}</option>
+            <option value="HIGH">{t.tasks.high}</option>
           </select>
         </div>
         <div className="field md:col-span-3">
-          <label>Përshkrimi</label>
+          <label>{t.tasks.description}</label>
           <input name="description" />
         </div>
         <button className="btn btn-primary" type="submit">
-          Krijo detyrë
+          {t.tasks.create}
         </button>
       </form>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="card p-4">
-          <h2 className="font-semibold mb-3">Të vonuara</h2>
-          <TaskList tasks={overdue} />
+          <h2 className="font-semibold mb-3">{t.tasks.overdue}</h2>
+          <TaskList tasks={overdue} locale={locale} t={t} />
         </section>
         <section className="card p-4">
-          <h2 className="font-semibold mb-3">Të ardhshme / hapura</h2>
-          <TaskList tasks={upcoming} />
+          <h2 className="font-semibold mb-3">{t.tasks.open}</h2>
+          <TaskList tasks={upcoming} locale={locale} t={t} />
         </section>
       </div>
     </div>
@@ -132,6 +136,8 @@ export default async function TasksPage() {
 
 function TaskList({
   tasks,
+  locale,
+  t,
 }: {
   tasks: Array<{
     id: string;
@@ -142,49 +148,51 @@ function TaskList({
     dueAt: Date;
     client: { id: string; firstName: string; lastName: string } | null;
   }>;
+  locale: Locale;
+  t: Messages;
 }) {
-  if (!tasks.length) return <p className="muted text-sm">Asnjë detyrë</p>;
+  if (!tasks.length) return <p className="muted text-sm">{t.tasks.none}</p>;
   return (
     <ul className="space-y-3 text-sm">
-      {tasks.map((t) => (
+      {tasks.map((task) => (
         <li
-          key={t.id}
+          key={task.id}
           className="border-b border-[var(--line-soft)] pb-3 flex flex-wrap justify-between gap-2"
         >
           <div>
-            <div className="font-medium">{t.title}</div>
+            <div className="font-medium">{task.title}</div>
             <div className="muted text-xs">
-              <span className="badge">{t.type}</span>{" "}
-              <span className="badge">{t.priority}</span> ·{" "}
-              {formatDateTime(t.dueAt)}
-              {t.client ? (
+              <span className="badge">{task.type}</span>{" "}
+              <span className="badge">{task.priority}</span> ·{" "}
+              {formatDateTime(task.dueAt, locale)}
+              {task.client ? (
                 <>
                   {" "}
                   ·{" "}
                   <Link
-                    href={`/clients/${t.client.id}`}
+                    href={`/clients/${task.client.id}`}
                     className="text-[var(--brand)]"
                   >
-                    {fullName(t.client.firstName, t.client.lastName)}
+                    {fullName(task.client.firstName, task.client.lastName)}
                   </Link>
                 </>
               ) : null}
             </div>
           </div>
-          {t.status === "OPEN" ? (
+          {task.status === "OPEN" ? (
             <div className="flex gap-1">
               <form action={updateTaskStatusAction}>
-                <input type="hidden" name="taskId" value={t.id} />
+                <input type="hidden" name="taskId" value={task.id} />
                 <input type="hidden" name="status" value="DONE" />
                 <button className="btn btn-secondary" type="submit">
-                  Kryer
+                  {t.tasks.markDone}
                 </button>
               </form>
               <form action={updateTaskStatusAction}>
-                <input type="hidden" name="taskId" value={t.id} />
+                <input type="hidden" name="taskId" value={task.id} />
                 <input type="hidden" name="status" value="POSTPONED" />
                 <button className="btn btn-ghost" type="submit">
-                  Shty
+                  {t.tasks.postpone}
                 </button>
               </form>
             </div>

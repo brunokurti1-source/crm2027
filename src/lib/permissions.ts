@@ -39,22 +39,22 @@ export const PERMISSION_KEYS = [
 ] as const;
 
 export const PERMISSION_LABELS: Record<keyof PermissionFlags, string> = {
-  clientView: "Shiko klientët",
-  clientAdd: "Shto klientë",
-  clientEdit: "Ndrysho klientë",
-  clientDelete: "Fshi klientë",
-  creditsAdd: "Shto kredi",
-  creditsRemove: "Hiq kredi",
-  creditHistoryView: "Shiko historikun e kredive",
-  commentsAdd: "Shto komente",
-  commentsDelete: "Fshi komente",
-  dataUpload: "Ngarko të dhëna",
-  dataDelete: "Fshi të dhëna",
-  dataExport: "Eksporto klientë",
-  manageAgents: "Menaxho agjentët",
-  manageClients: "Menaxho caktimet e klientëve",
-  manageStatuses: "Menaxho statuset",
-  impersonate: "Impersono përdorues",
+  clientView: "View clients",
+  clientAdd: "Add clients",
+  clientEdit: "Edit clients",
+  clientDelete: "Delete clients",
+  creditsAdd: "Add credits",
+  creditsRemove: "Remove credits",
+  creditHistoryView: "View credit history",
+  commentsAdd: "Add comments",
+  commentsDelete: "Delete comments",
+  dataUpload: "Upload data",
+  dataDelete: "Delete data",
+  dataExport: "Export data",
+  manageAgents: "Manage agents",
+  manageClients: "Manage client assignments",
+  manageStatuses: "Manage statuses",
+  impersonate: "Impersonate users",
 };
 
 export const ALL_PERMISSIONS: PermissionFlags = {
@@ -146,13 +146,13 @@ export function hasPermission(
 
 export const ROLE_LABELS: Record<Role, string> = {
   ADMIN: "Administrator",
-  MANAGER: "Menaxher",
+  MANAGER: "Manager",
   AGENT: "Agjent",
 };
 
 /** Fallback codes if DB statuses are empty — includes operational pipeline + disposition labels */
 export const DEFAULT_STATUS_SEED = [
-  { code: "NEW", labelSq: "I ri", labelEn: "New", sortOrder: 10, isSystem: true },
+  { code: "NEW", labelSq: "New", labelEn: "New", sortOrder: 10, isSystem: true },
   { code: "NO_ANSWER", labelSq: "No answer", labelEn: "No answer", sortOrder: 20, isSystem: false },
   { code: "DEPOSITOR", labelSq: "Depositor", labelEn: "depositor", sortOrder: 30, isSystem: false },
   { code: "UNDER_18", labelSq: "Under 18", labelEn: "Under 18", sortOrder: 40, isSystem: false },
@@ -162,7 +162,7 @@ export const DEFAULT_STATUS_SEED = [
   { code: "LOW_POTENTIAL", labelSq: "Low potential", labelEn: "Low potential", sortOrder: 80, isSystem: false },
   { code: "MEDIUM_POTENTIAL", labelSq: "Medium potential", labelEn: "Medium potential", sortOrder: 90, isSystem: false },
   { code: "HIGH_POTENTIAL", labelSq: "High potential", labelEn: "High potential", sortOrder: 100, isSystem: false },
-  { code: "ARCHIVED", labelSq: "Arkivuar", labelEn: "Archived", sortOrder: 200, isSystem: true },
+  { code: "ARCHIVED", labelSq: "Archived", labelEn: "Archived", sortOrder: 200, isSystem: true },
 ] as const;
 
 export const CLIENT_STATUSES = DEFAULT_STATUS_SEED.map((s) => s.code);

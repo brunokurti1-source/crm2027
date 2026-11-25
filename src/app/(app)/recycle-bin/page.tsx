@@ -5,11 +5,13 @@ import {
   restoreSoftDeleteAction,
   purgeSoftDeleteAction,
 } from "@/app/actions/recycle";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export default async function RecycleBinPage() {
   const ctx = await requireAuth();
+  const { locale, t } = await getDictionary();
   if (ctx.user.role !== "ADMIN") {
-    return <p className="flash-err">Vetëm administratori.</p>;
+    return <p className="flash-err">{t.recycle.adminOnly}</p>;
   }
 
   const items = await prisma.softDelete.findMany({
@@ -24,20 +26,17 @@ export default async function RecycleBinPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="page-title">Të fshira</h1>
-        <p className="page-sub">
-          Riktheni ose fshini përgjithmonë. Fshirja e përhershme është e
-          pakthyeshme.
-        </p>
+        <h1 className="page-title">{t.recycle.title}</h1>
+        <p className="page-sub">{t.recycle.subtitle}</p>
       </div>
       <div className="card overflow-x-auto">
         <table className="table text-sm">
           <thead>
             <tr>
-              <th>Lloji</th>
-              <th>Emri</th>
-              <th>Fshirë nga</th>
-              <th>Kur</th>
+              <th>{t.recycle.type}</th>
+              <th>{t.recycle.name}</th>
+              <th>{t.recycle.deletedBy}</th>
+              <th>{t.recycle.when}</th>
               <th></th>
             </tr>
           </thead>
@@ -54,22 +53,26 @@ export default async function RecycleBinPage() {
                         item.deletedBy.firstName,
                         item.deletedBy.lastName,
                       )
-                    : "—"}
+                    : t.common.none}
                 </td>
-                <td>{formatDateTime(item.deletedAt)}</td>
+                <td>{formatDateTime(item.deletedAt, locale)}</td>
                 <td>
                   <div className="flex gap-1">
                     <form action={restoreSoftDeleteAction}>
                       <input type="hidden" name="id" value={item.id} />
                       <button className="btn btn-secondary" type="submit">
-                        Rikthe
+                        {t.recycle.restore}
                       </button>
                     </form>
                     <form action={purgeSoftDeleteAction}>
                       <input type="hidden" name="id" value={item.id} />
-                      <input type="hidden" name="confirm" value="FSHIJ" />
+                      <input
+                        type="hidden"
+                        name="confirm"
+                        value={t.recycle.confirmValue}
+                      />
                       <button className="btn btn-danger" type="submit">
-                        Fshi përgjithmonë
+                        {t.recycle.purge}
                       </button>
                     </form>
                   </div>
@@ -79,7 +82,7 @@ export default async function RecycleBinPage() {
             {!items.length ? (
               <tr>
                 <td colSpan={5} className="muted">
-                  Kuti e zbrazët
+                  {t.recycle.empty}
                 </td>
               </tr>
             ) : null}

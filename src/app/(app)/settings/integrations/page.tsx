@@ -2,12 +2,14 @@ import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { CreateIntegrationForm, RunDueSyncsButton } from "./forms";
 
 export default async function IntegrationsPage() {
   const ctx = await requireAuth();
+  const { t } = await getDictionary();
   if (ctx.user.role !== "ADMIN" && ctx.user.role !== "MANAGER") {
-    return <p className="flash-err">Nuk keni leje.</p>;
+    return <p className="flash-err">{t.integrationsPage.noPermission}</p>;
   }
 
   const where =
@@ -49,23 +51,26 @@ export default async function IntegrationsPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="page-title">Integrimet API</h1>
+          <h1 className="page-title">{t.integrationsPage.title}</h1>
           <p className="page-sub">
             {ctx.user.role === "ADMIN"
-              ? "Lidhni sisteme të jashtme me grupe menaxherësh të ndara."
-              : "Shikoni integrimin dhe aktivitetin e grupit tuaj."}
+              ? t.integrationsPage.subtitle
+              : t.integrationsPage.managerSubtitle}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link className="btn btn-secondary" href="/settings/integrations/docs">
-            Dokumentimi
+            {t.integrationsPage.docs}
           </Link>
           {ctx.user.role === "ADMIN" ? (
             <Link
               className="btn btn-secondary"
               href="/settings/integrations/pending"
             >
-              Pritje ({pendingCount})
+              {t.integrationsPage.pendingCount.replace(
+                "{count}",
+                String(pendingCount),
+              )}
             </Link>
           ) : null}
         </div>
@@ -91,12 +96,12 @@ export default async function IntegrationsPage() {
         <table className="table text-sm">
           <thead>
             <tr>
-              <th>Emri</th>
-              <th>Drejtimi</th>
-              <th>Menaxheri</th>
-              <th>Sinkronizimi</th>
-              <th>Statusi</th>
-              <th>Gabimi i fundit</th>
+              <th>{t.integrationsPage.name}</th>
+              <th>{t.common.direction}</th>
+              <th>{t.integrationsPage.manager}</th>
+              <th>{t.integrationsPage.sync}</th>
+              <th>{t.integrationsPage.status}</th>
+              <th>{t.integrationsPage.lastError}</th>
               <th></th>
             </tr>
           </thead>
@@ -113,15 +118,19 @@ export default async function IntegrationsPage() {
                       ? `${managers.find((m) => m.id === i.managerId)!.firstName} ${managers.find((m) => m.id === i.managerId)!.lastName}`
                       : i.managerId.slice(0, 8)
                     : ctx.user.role === "MANAGER"
-                      ? "Grupi juaj"
-                      : "Global"}
+                      ? t.integrationsPage.yourGroup
+                      : t.integrationsPage.global}
                 </td>
                 <td className="muted">
-                  {i.lastSyncAt ? formatDateTime(i.lastSyncAt) : "—"}
+                  {i.lastSyncAt ? formatDateTime(i.lastSyncAt) : t.common.none}
                   {i.syncEnabled ? (
-                    <span className="badge badge-ok ml-1">ON</span>
+                    <span className="badge badge-ok ml-1">
+                      {t.integrationsPage.syncOn}
+                    </span>
                   ) : (
-                    <span className="badge badge-warn ml-1">OFF</span>
+                    <span className="badge badge-warn ml-1">
+                      {t.integrationsPage.syncOff}
+                    </span>
                   )}
                 </td>
                 <td>
@@ -134,18 +143,21 @@ export default async function IntegrationsPage() {
                           : ""
                     }`}
                   >
-                    {i.lastSyncStatus || (i.active ? "Aktiv" : "Joaktiv")}
+                    {i.lastSyncStatus ||
+                      (i.active
+                        ? t.integrationsPage.active
+                        : t.integrationsPage.inactive)}
                   </span>
                 </td>
                 <td className="muted max-w-[14rem] truncate">
-                  {i.lastError || "—"}
+                  {i.lastError || t.common.none}
                 </td>
                 <td>
                   <Link
                     className="text-[var(--brand)] font-semibold"
                     href={`/settings/integrations/${i.id}`}
                   >
-                    Hap
+                    {t.integrationsPage.view}
                   </Link>
                 </td>
               </tr>
@@ -153,7 +165,7 @@ export default async function IntegrationsPage() {
             {!integrations.length ? (
               <tr>
                 <td colSpan={7} className="muted">
-                  Nuk ka integrime të konfiguruara.
+                  {t.integrationsPage.empty}
                 </td>
               </tr>
             ) : null}

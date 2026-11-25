@@ -2,12 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { createMeetingAction, createReminderAction } from "@/app/actions/meetings";
+import { useT } from "@/components/i18n-provider";
 
 export function AgendaForms({
   clients,
 }: {
   clients: { id: string; label: string }[];
 }) {
+  const t = useT();
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -25,16 +27,16 @@ export function AgendaForms({
           setMsg(null);
           startTransition(async () => {
             const res = await createMeetingAction(fd);
-            setMsg(res?.error || "Takimi u planifikua.");
+            setMsg(res?.error || t.agenda.meetingScheduled);
           });
         }}
       >
-        <h3 className="font-semibold">Takim i ri</h3>
+        <h3 className="font-semibold">{t.agenda.newMeeting}</h3>
         <div className="field">
-          <label>Klienti</label>
+          <label>{t.agenda.client}</label>
           <select name="clientId" required defaultValue="">
             <option value="" disabled>
-              Zgjidhni…
+              {t.agenda.choose}
             </option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>
@@ -45,20 +47,20 @@ export function AgendaForms({
         </div>
         <div className="grid-form">
           <div className="field">
-            <label>Data</label>
+            <label>{t.common.date}</label>
             <input name="date" type="date" required />
           </div>
           <div className="field">
-            <label>Ora</label>
+            <label>{t.common.time}</label>
             <input name="time" type="time" defaultValue="10:00" />
           </div>
         </div>
         <div className="field">
-          <label>Shënime</label>
+          <label>{t.agenda.notes}</label>
           <input name="notes" />
         </div>
         <button className="btn btn-primary" disabled={pending}>
-          Planifiko
+          {t.agenda.schedule}
         </button>
       </form>
 
@@ -68,31 +70,31 @@ export function AgendaForms({
           setMsg(null);
           startTransition(async () => {
             const res = await createReminderAction(fd);
-            setMsg(res?.error || "Kujtesa u shtua.");
+            setMsg(res?.error || t.agenda.reminderAdded);
           });
         }}
       >
-        <h3 className="font-semibold">Kujtesë private</h3>
+        <h3 className="font-semibold">{t.agenda.privateReminder}</h3>
         <div className="field">
-          <label>Titulli</label>
+          <label>{t.agenda.reminderTitle}</label>
           <input name="title" required />
         </div>
         <div className="grid-form">
           <div className="field">
-            <label>Data</label>
+            <label>{t.common.date}</label>
             <input name="date" type="date" required />
           </div>
           <div className="field">
-            <label>Ora</label>
+            <label>{t.common.time}</label>
             <input name="time" type="time" defaultValue="09:00" />
           </div>
         </div>
         <div className="field">
-          <label>Shënime</label>
+          <label>{t.agenda.notes}</label>
           <input name="notes" />
         </div>
         <button className="btn btn-secondary" disabled={pending}>
-          Shto kujtesë
+          {t.agenda.addReminder}
         </button>
       </form>
     </div>

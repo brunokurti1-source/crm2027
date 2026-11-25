@@ -7,6 +7,7 @@ import {
   deleteCustomFieldAction,
 } from "@/app/actions/custom-fields";
 import { CUSTOM_FIELD_TYPES } from "@/lib/custom-fields";
+import { useT } from "@/components/i18n-provider";
 
 type FieldRow = {
   id: string;
@@ -23,8 +24,15 @@ type FieldRow = {
 };
 
 export function CustomFieldsAdmin({ fields }: { fields: FieldRow[] }) {
+  const t = useT();
   const [msg, setMsg] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  const confirmLabel = t.fieldsPage.confirmDelete.replace(
+    "{word}",
+    t.common.confirmWord,
+  );
 
   return (
     <div className="space-y-4">
@@ -32,57 +40,64 @@ export function CustomFieldsAdmin({ fields }: { fields: FieldRow[] }) {
         className="card p-4 grid gap-3 md:grid-cols-3"
         action={(fd) => {
           setMsg(null);
+          setOk(false);
           startTransition(async () => {
             const res = await createCustomFieldAction(fd);
-            setMsg(res.error || "Fusha u shtua.");
+            if (res.error) {
+              setMsg(res.error);
+              setOk(false);
+            } else {
+              setMsg(t.fieldsPage.added);
+              setOk(true);
+            }
           });
         }}
       >
         <div className="field">
-          <label>Entiteti</label>
+          <label>{t.fieldsPage.entity}</label>
           <select name="entityType" defaultValue="CLIENT">
-            <option value="CLIENT">Klient</option>
-            <option value="USER">Përdorues</option>
+            <option value="CLIENT">{t.fieldsPage.entityClient}</option>
+            <option value="USER">{t.fieldsPage.entityUser}</option>
           </select>
         </div>
         <div className="field">
-          <label>Emri i fushës</label>
-          <input name="label" required placeholder="Preferenca gjuhe" />
+          <label>{t.fieldsPage.fieldLabel}</label>
+          <input name="label" required placeholder="Language preference" />
         </div>
         <div className="field">
-          <label>Çelësi (opsional)</label>
+          <label>{t.fieldsPage.fieldKey}</label>
           <input name="key" placeholder="language_pref" />
         </div>
         <div className="field">
-          <label>Lloji</label>
+          <label>{t.fieldsPage.dataType}</label>
           <select name="dataType" defaultValue="TEXT">
-            {CUSTOM_FIELD_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
+            {CUSTOM_FIELD_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {type}
               </option>
             ))}
           </select>
         </div>
         <div className="field md:col-span-2">
-          <label>Opsione SELECT (ndarë me presje)</label>
+          <label>{t.fieldsPage.selectOptions}</label>
           <input name="options" placeholder="option1, option2" />
         </div>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="required" /> E detyrueshme
+          <input type="checkbox" name="required" /> {t.fieldsPage.required}
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="showInList" /> Në tabelë
+          <input type="checkbox" name="showInList" /> {t.fieldsPage.inTable}
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="showInFilter" /> Në filtra
+          <input type="checkbox" name="showInFilter" /> {t.fieldsPage.inFilters}
         </label>
         <button className="btn btn-primary" disabled={pending}>
-          Shto fushë
+          {t.fieldsPage.add}
         </button>
       </form>
 
       {msg ? (
-        <div className={msg.includes("u ") ? "flash-ok" : "flash-err"}>{msg}</div>
+        <div className={ok ? "flash-ok" : "flash-err"}>{msg}</div>
       ) : null}
 
       {fields.map((f) => (
@@ -95,31 +110,37 @@ export function CustomFieldsAdmin({ fields }: { fields: FieldRow[] }) {
             action={(fd) => {
               startTransition(async () => {
                 const res = await updateCustomFieldAction(fd);
-                setMsg(res.error || "U ruajt.");
+                if (res.error) {
+                  setMsg(res.error);
+                  setOk(false);
+                } else {
+                  setMsg(t.fieldsPage.saved);
+                  setOk(true);
+                }
               });
             }}
           >
             <input type="hidden" name="id" value={f.id} />
             <div className="field">
-              <label>Emri</label>
+              <label>{t.common.name}</label>
               <input name="label" defaultValue={f.label} required />
             </div>
             <div className="field">
-              <label>Lloji</label>
+              <label>{t.common.type}</label>
               <select name="dataType" defaultValue={f.dataType}>
-                {CUSTOM_FIELD_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
+                {CUSTOM_FIELD_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
                   </option>
                 ))}
               </select>
             </div>
             <div className="field">
-              <label>Renditja</label>
+              <label>{t.common.sortOrder}</label>
               <input name="sortOrder" type="number" defaultValue={f.sortOrder} />
             </div>
             <div className="field md:col-span-3">
-              <label>Opsione</label>
+              <label>{t.common.options}</label>
               <input name="options" defaultValue={f.options} />
             </div>
             <label className="flex items-center gap-2 text-sm">
@@ -128,7 +149,7 @@ export function CustomFieldsAdmin({ fields }: { fields: FieldRow[] }) {
                 name="required"
                 defaultChecked={f.required}
               />{" "}
-              Detyrueshme
+              {t.fieldsPage.required}
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -136,7 +157,7 @@ export function CustomFieldsAdmin({ fields }: { fields: FieldRow[] }) {
                 name="showInList"
                 defaultChecked={f.showInList}
               />{" "}
-              Tabelë
+              {t.fieldsPage.tableShort}
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -144,14 +165,14 @@ export function CustomFieldsAdmin({ fields }: { fields: FieldRow[] }) {
                 name="showInFilter"
                 defaultChecked={f.showInFilter}
               />{" "}
-              Filtra
+              {t.fieldsPage.filtersShort}
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="active" defaultChecked={f.active} />{" "}
-              Aktive
+              {t.fieldsPage.activeField}
             </label>
             <button className="btn btn-secondary" disabled={pending}>
-              Ruaj
+              {t.common.save}
             </button>
           </form>
           <form
@@ -159,17 +180,23 @@ export function CustomFieldsAdmin({ fields }: { fields: FieldRow[] }) {
             action={(fd) => {
               startTransition(async () => {
                 const res = await deleteCustomFieldAction(fd);
-                setMsg(res.error || "U fshi.");
+                if (res.error) {
+                  setMsg(res.error);
+                  setOk(false);
+                } else {
+                  setMsg(t.fieldsPage.deleted);
+                  setOk(true);
+                }
               });
             }}
           >
             <input type="hidden" name="id" value={f.id} />
             <div className="field">
-              <label>Konfirmim (PO)</label>
-              <input name="confirm" required placeholder="PO" />
+              <label>{confirmLabel}</label>
+              <input name="confirm" required placeholder={t.common.confirmWord} />
             </div>
             <button className="btn btn-secondary" disabled={pending}>
-              Fshi fushën
+              {t.fieldsPage.deleteField}
             </button>
           </form>
         </div>

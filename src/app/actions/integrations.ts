@@ -16,6 +16,7 @@ import {
   testIntegrationConnection,
   upsertInboundClient,
 } from "@/lib/integrations";
+import { actionT } from "@/lib/i18n/action-t";
 
 function assertAdmin(ctx: Awaited<ReturnType<typeof requireAuth>>) {
   return ctx.user.role === "ADMIN";
@@ -33,11 +34,12 @@ function canViewIntegration(
 export async function createIntegrationAction(
   formData: FormData,
 ): Promise<{ error?: string; ok?: boolean; inboundKey?: string }> {
+  const t = await actionT();
   const ctx = await requireAuth();
-  if (!assertAdmin(ctx)) return { error: "Vetëm administratori." };
+  if (!assertAdmin(ctx)) return { error: t.errors.adminOnly };
 
   const name = String(formData.get("name") || "").trim();
-  if (!name) return { error: "Emri është i detyrueshëm." };
+  if (!name) return { error: t.errors.nameRequired };
 
   const managerId = String(formData.get("managerId") || "") || null;
   const defaultAgentId = String(formData.get("defaultAgentId") || "") || null;
@@ -47,7 +49,7 @@ export async function createIntegrationAction(
     const manager = await prisma.user.findFirst({
       where: { id: managerId, role: "MANAGER", active: true },
     });
-    if (!manager) return { error: "Menaxheri nuk është i vlefshëm." };
+    if (!manager) return { error: t.errors.invalidManager };
   }
   if (defaultAgentId) {
     const agent = await prisma.user.findFirst({
@@ -57,14 +59,14 @@ export async function createIntegrationAction(
         ...(managerId ? { managerId } : {}),
       },
     });
-    if (!agent) return { error: "Agjenti i parazgjedhur nuk është në grupin e menaxherit." };
+    if (!agent) return { error: t.errors.agentNotInGroup };
   }
 
   const mappings = String(formData.get("fieldMappings") || "[]");
   try {
     parseMappings(mappings);
   } catch {
-    return { error: "Hartëzimi i fushave nuk është JSON i vlefshëm." };
+    return { error: t.errors.invalidJsonMapping };
   }
 
   const apiKey = String(formData.get("apiKey") || "").trim();
@@ -132,12 +134,13 @@ export async function createIntegrationAction(
 export async function updateIntegrationAction(
   formData: FormData,
 ): Promise<{ error?: string; ok?: boolean; inboundKey?: string }> {
+  const t = await actionT();
   const ctx = await requireAuth();
-  if (!assertAdmin(ctx)) return { error: "Vetëm administratori." };
+  if (!assertAdmin(ctx)) return { error: t.errors.adminOnly };
 
   const id = String(formData.get("id") || "");
   const existing = await prisma.integration.findUnique({ where: { id } });
-  if (!existing) return { error: "Nuk u gjet." };
+  if (!existing) return { error: t.errors.notFound };
 
   const managerId = String(formData.get("managerId") || "") || null;
   const defaultAgentId = String(formData.get("defaultAgentId") || "") || null;
@@ -216,14 +219,15 @@ export async function updateIntegrationAction(
 export async function deleteIntegrationAction(
   formData: FormData,
 ): Promise<{ error?: string; ok?: boolean }> {
+  const t = await actionT();
   const ctx = await requireAuth();
-  if (!assertAdmin(ctx)) return { error: "Vetëm administratori." };
+  if (!assertAdmin(ctx)) return { error: t.errors.adminOnly };
   if (String(formData.get("confirm") || "") !== "PO") {
-    return { error: "Shkruani PO për të konfirmuar fshirjen." };
+    return { error: t.errors.confirmYes };
   }
   const id = String(formData.get("id") || "");
   const existing = await prisma.integration.findUnique({ where: { id } });
-  if (!existing) return { error: "Nuk u gjet." };
+  if (!existing) return { error: t.errors.notFound };
 
   await prisma.integration.delete({ where: { id } });
   await logAudit({
@@ -238,14 +242,15 @@ export async function deleteIntegrationAction(
 export async function testIntegrationAction(
   formData: FormData,
 ): Promise<{ error?: string; ok?: boolean; status?: number }> {
+  const t = await actionT();
   const ctx = await requireAuth();
   const id = String(formData.get("id") || "");
   const integration = await prisma.integration.findUnique({ where: { id } });
-  if (!integration) return { error: "Nuk u gjet." };
+  if (!integration) return { error: t.errors.notFound };
   if (!canViewIntegration(ctx, integration.managerId) && !assertAdmin(ctx)) {
-    return { error: "Nuk keni leje." };
+    return { error: t.errors.permissionDenied };
   }
-  if (!assertAdmin(ctx)) return { error: "Vetëm administratori mund të provojë lidhjen." };
+  if (!assertAdmin(ctx)) return { error: t.errors.testAdminOnly };
   const res = await testIntegrationConnection(id);
   revalidatePath(`/settings/integrations/${id}`);
   return res.ok ? { ok: true, status: res.status } : { error: res.error };
@@ -254,8 +259,9 @@ export async function testIntegrationAction(
 export async function runSyncNowAction(
   formData: FormData,
 ): Promise<{ error?: string; ok?: boolean }> {
+  const t = await actionT();
   const ctx = await requireAuth();
-  if (!assertAdmin(ctx)) return { error: "Vetëm administratori." };
+  if (!assertAdmin(ctx)) return { error: t.errors.adminOnly };
   const id = String(formData.get("id") || "");
   const retry = formData.get("retry") === "1";
   const res = retry ? await retryFailedSyncs(id) : await runInboundPoll(id, "MANUAL");
@@ -270,8 +276,9 @@ export async function runDueSyncsAction(): Promise<{
   ran?: number;
   checked?: number;
 }> {
+  const t = await actionT();
   const ctx = await requireAuth();
-  if (!assertAdmin(ctx)) return { error: "Vetëm administratori." };
+  if (!assertAdmin(ctx)) return { error: t.errors.adminOnly };
   const summary = await runDueIntegrationSyncs();
   await logAudit({
     actorId: ctx.realUser.id,
@@ -285,22 +292,23 @@ export async function runDueSyncsAction(): Promise<{
 export async function assignPendingItemAction(
   formData: FormData,
 ): Promise<{ error?: string; ok?: boolean }> {
+  const t = await actionT();
   const ctx = await requireAuth();
-  if (!assertAdmin(ctx)) return { error: "Vetëm administratori." };
+  if (!assertAdmin(ctx)) return { error: t.errors.adminOnly };
 
   const id = String(formData.get("id") || "");
   const managerId = String(formData.get("managerId") || "");
   const agentId = String(formData.get("agentId") || "") || null;
-  if (!managerId) return { error: "Zgjidhni menaxherin." };
+  if (!managerId) return { error: t.errors.pickManager };
 
   const item = await prisma.integrationPendingItem.findUnique({ where: { id } });
-  if (!item || item.status !== "PENDING") return { error: "Artikulli nuk është në pritje." };
+  if (!item || item.status !== "PENDING") return { error: t.errors.pendingNotOpen };
 
   let payload: Record<string, unknown>;
   try {
     payload = JSON.parse(item.payload) as Record<string, unknown>;
   } catch {
-    return { error: "Payload i pavlefshëm." };
+    return { error: t.errors.invalidPayload };
   }
 
   // Temporarily ensure integration has manager for upsert, or create client directly
@@ -412,10 +420,11 @@ export async function assignPendingItemAction(
 export async function discardPendingItemAction(
   formData: FormData,
 ): Promise<{ error?: string; ok?: boolean }> {
+  const t = await actionT();
   const ctx = await requireAuth();
-  if (!assertAdmin(ctx)) return { error: "Vetëm administratori." };
+  if (!assertAdmin(ctx)) return { error: t.errors.adminOnly };
   if (String(formData.get("confirm") || "") !== "PO") {
-    return { error: "Shkruani PO për të hedhur poshtë." };
+    return { error: t.errors.confirmReject };
   }
   const id = String(formData.get("id") || "");
   await prisma.integrationPendingItem.update({

@@ -6,6 +6,8 @@ import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logActivity, logAudit } from "@/lib/audit";
 import { findDuplicateClients, DuplicateMatch } from "@/lib/duplicates";
+import { actionT } from "@/lib/i18n/action-t";
+import type { Messages } from "@/lib/i18n/messages/en";
 
 export type ImportPreviewRow = {
   row: number;
@@ -49,6 +51,7 @@ function cell(row: Record<string, unknown>, ...keys: string[]): string {
 
 async function parseWorkbook(
   file: File,
+  errors: Messages["errors"],
 ): Promise<
   | { ok: true; rows: Record<string, unknown>[] }
   | { ok: false; error: string }
@@ -58,10 +61,7 @@ async function parseWorkbook(
   try {
     workbook = XLSX.read(buffer, { type: "buffer" });
   } catch {
-    return {
-      ok: false,
-      error: "Skedari nuk mund të lexohej. Përdorni .xlsx ose .csv.",
-    };
+    return { ok: false, error: errors.fileUnreadable };
   }
 
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -70,12 +70,16 @@ async function parseWorkbook(
   });
 
   if (!rows.length) {
-    return { ok: false, error: "Skedari është bosh." };
+    return { ok: false, error: errors.fileEmpty };
   }
   return { ok: true, rows };
 }
 
-function parseRow(row: Record<string, unknown>, rowNum: number) {
+function parseRow(
+  row: Record<string, unknown>,
+  rowNum: number,
+  errors: Messages["errors"],
+) {
   const clientIdNumber = cell(row, "clientIdNumber", "client_id", "ID", "id");
   const firstName = cell(row, "firstName", "first_name", "emri", "Emri");
   const lastName = cell(row, "lastName", "last_name", "mbiemri", "Mbiemri");
@@ -88,16 +92,10 @@ function parseRow(row: Record<string, unknown>, rowNum: number) {
   const creditBalance = creditRaw ? Number(creditRaw) : 0;
 
   if (!clientIdNumber || !firstName || !lastName) {
-    return {
-      error: {
-        row: rowNum,
-        message:
-          "Mungojnë fushat e detyrueshme: clientIdNumber, firstName, lastName",
-      },
-    };
+    return { error: { row: rowNum, message: errors.importMissingFields } };
   }
   if (email && !email.includes("@")) {
-    return { error: { row: rowNum, message: "Email i pavlefshëm" } };
+    return { error: { row: rowNum, message: errors.invalidEmail } };
   }
 
   return {
@@ -118,12 +116,13 @@ function parseRow(row: Record<string, unknown>, rowNum: number) {
 export async function previewClientsImportAction(
   formData: FormData,
 ): Promise<ImportPreviewResult> {
+  const t = await actionT();
   const ctx = await requireAuth();
   if (!ctx.user.permissions.dataUpload && ctx.user.role !== "ADMIN") {
     return {
       ok: false,
       rows: [],
-      errors: [{ row: 0, message: "Nuk keni leje për ngarkim." }],
+      errors: [{ row: 0, message: t.errors.noUpload }],
     };
   }
 
@@ -132,13 +131,11 @@ export async function previewClientsImportAction(
     return {
       ok: false,
       rows: [],
-      errors: [
-        { row: 0, message: "Ngarkoni një skedar Excel (.xlsx) ose CSV." },
-      ],
+      errors: [{ row: 0, message: t.errors.uploadFileRequired }],
     };
   }
 
-  const parsed = await parseWorkbook(file);
+  const parsed = await parseWorkbook(file, t.errors);
   if (!parsed.ok) {
     return { ok: false, rows: [], errors: [{ row: 0, message: parsed.error }] };
   }
@@ -148,7 +145,7 @@ export async function previewClientsImportAction(
 
   for (let i = 0; i < parsed.rows.length; i++) {
     const rowNum = i + 2;
-    const result = parseRow(parsed.rows[i], rowNum);
+    const result = parseRow(parsed.rows[i], rowNum, t.errors);
     if (result.error) {
       errors.push(result.error);
       continue;
@@ -165,22 +162,24 @@ export async function previewClientsImportAction(
     });
 
     if (existingById) {
+      const ids = duplicates.map((d) => d.clientIdNumber).join(", ");
       preview.push({
         row: rowNum,
         ...data,
         action: "update",
         duplicates,
         message: duplicates.length
-          ? `Përditësim — kontrolloni dublikatat (${duplicates.map((d) => d.clientIdNumber).join(", ")})`
-          : "Do të përditësohet klienti ekzistues",
+          ? t.errors.importUpdateCheckDups.replace("{ids}", ids)
+          : t.errors.willUpdate,
       });
     } else if (duplicates.length) {
+      const ids = duplicates.map((d) => d.clientIdNumber).join(", ");
       preview.push({
         row: rowNum,
         ...data,
         action: "skip",
         duplicates,
-        message: `Mundësi dublikate: ${duplicates.map((d) => d.clientIdNumber).join(", ")}. Konfirmoni për të krijuar gjithsesi.`,
+        message: t.errors.importPossibleDup.replace("{ids}", ids),
       });
     } else {
       preview.push({
@@ -188,7 +187,7 @@ export async function previewClientsImportAction(
         ...data,
         action: "create",
         duplicates: [],
-        message: "Do të krijohet",
+        message: t.errors.willCreate,
       });
     }
   }
@@ -199,6 +198,7 @@ export async function previewClientsImportAction(
 export async function importClientsAction(
   formData: FormData,
 ): Promise<ImportResult> {
+  const t = await actionT();
   const ctx = await requireAuth();
   if (!ctx.user.permissions.dataUpload && ctx.user.role !== "ADMIN") {
     return {
@@ -206,7 +206,7 @@ export async function importClientsAction(
       created: 0,
       updated: 0,
       skipped: 0,
-      errors: [{ row: 0, message: "Nuk keni leje për ngarkim." }],
+      errors: [{ row: 0, message: t.errors.noUpload }],
     };
   }
 
@@ -221,13 +221,11 @@ export async function importClientsAction(
       created: 0,
       updated: 0,
       skipped: 0,
-      errors: [
-        { row: 0, message: "Ngarkoni një skedar Excel (.xlsx) ose CSV." },
-      ],
+      errors: [{ row: 0, message: t.errors.uploadFileRequired }],
     };
   }
 
-  const parsed = await parseWorkbook(file);
+  const parsed = await parseWorkbook(file, t.errors);
   if (!parsed.ok) {
     return {
       ok: false,
@@ -245,7 +243,7 @@ export async function importClientsAction(
 
   for (let i = 0; i < parsed.rows.length; i++) {
     const rowNum = i + 2;
-    const result = parseRow(parsed.rows[i], rowNum);
+    const result = parseRow(parsed.rows[i], rowNum, t.errors);
     if (result.error) {
       errors.push(result.error);
       continue;
@@ -287,9 +285,10 @@ export async function importClientsAction(
         email: data.email,
       });
       if (duplicates.length && !acknowledgeDuplicates) {
+        const ids = duplicates.map((d) => d.clientIdNumber).join(", ");
         errors.push({
           row: rowNum,
-          message: `Dublikatë me ${duplicates.map((d) => d.clientIdNumber).join(", ")} (telefon/email). Shikoni paraprakisht dhe konfirmoni.`,
+          message: t.errors.importDupSkip.replace("{ids}", ids),
         });
         skipped++;
         continue;
@@ -322,7 +321,7 @@ export async function importClientsAction(
     } catch (e) {
       errors.push({
         row: rowNum,
-        message: e instanceof Error ? e.message : "Gabim i panjohur",
+        message: e instanceof Error ? e.message : t.errors.unknownError,
       });
     }
   }

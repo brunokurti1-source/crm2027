@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { ROLE_LABELS, Role } from "@/lib/permissions";
+import { Role } from "@/lib/permissions";
 import { fullName } from "@/lib/format";
 import { startImpersonationAction } from "@/app/actions/auth";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export default async function UsersPage() {
   const ctx = await requireAuth();
+  const { t } = await getDictionary();
   if (ctx.user.role !== "ADMIN" && !ctx.user.permissions.manageAgents) {
-    return <p className="text-[var(--danger)]">Nuk keni leje.</p>;
+    return <p className="text-[var(--danger)]">{t.users.noPermission}</p>;
   }
 
   const users = await prisma.user.findMany({
@@ -27,11 +29,11 @@ export default async function UsersPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Përdoruesit</h1>
-          <p className="muted text-sm">Menaxhimi i roleve dhe lejeve</p>
+          <h1 className="text-2xl font-bold">{t.users.title}</h1>
+          <p className="muted text-sm">{t.users.subtitle}</p>
         </div>
         <Link href="/users/new" className="btn btn-primary">
-          Përdorues i ri
+          {t.users.new}
         </Link>
       </div>
 
@@ -39,12 +41,12 @@ export default async function UsersPage() {
         <table className="table text-sm">
           <thead>
             <tr>
-              <th>Emri</th>
-              <th>Email</th>
-              <th>Roli</th>
-              <th>Menaxheri</th>
-              <th>Statusi</th>
-              <th>Ngarkesa</th>
+              <th>{t.users.name}</th>
+              <th>{t.users.email}</th>
+              <th>{t.users.role}</th>
+              <th>{t.users.manager}</th>
+              <th>{t.users.status}</th>
+              <th>{t.users.load}</th>
               <th></th>
             </tr>
           </thead>
@@ -57,23 +59,23 @@ export default async function UsersPage() {
                   </Link>
                 </td>
                 <td>{u.email}</td>
-                <td>{ROLE_LABELS[u.role as Role]}</td>
+                <td>{t.roles[u.role as Role]}</td>
                 <td>
                   {u.manager
                     ? fullName(u.manager.firstName, u.manager.lastName)
-                    : "—"}
+                    : t.common.none}
                 </td>
                 <td>
                   <span className={`badge ${u.active ? "" : "badge-warn"}`}>
-                    {u.active ? "Aktiv" : "Joaktiv"}
+                    {u.active ? t.users.active : t.users.inactive}
                   </span>
                 </td>
                 <td>
                   {u.role === "AGENT"
-                    ? `${u._count.assignedClients} klientë`
+                    ? `${u._count.assignedClients} ${t.users.clientsAssigned}`
                     : u.role === "MANAGER"
-                      ? `${u._count.agents} agjentë`
-                      : "—"}
+                      ? `${u._count.agents} ${t.users.agentsCount}`
+                      : t.common.none}
                 </td>
                 <td>
                   {(ctx.realUser.permissions.impersonate ||
@@ -83,7 +85,7 @@ export default async function UsersPage() {
                       <form action={startImpersonationAction}>
                         <input type="hidden" name="targetUserId" value={u.id} />
                         <button className="btn btn-secondary" type="submit">
-                          Impersono
+                          {t.impersonation.impersonate}
                         </button>
                       </form>
                     )}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { useT } from "@/components/i18n-provider";
 
 export type NavItem = {
   href: string;
@@ -21,6 +22,7 @@ export function SidebarNav({
   mobileOpen: boolean;
   onClose: () => void;
 }) {
+  const t = useT();
   const pathname = usePathname();
   const visible = items.filter((i) => i.show);
 
@@ -30,7 +32,7 @@ export function SidebarNav({
         <button
           type="button"
           className="sidebar-backdrop md:hidden"
-          aria-label="Close menu"
+          aria-label={t.nav.closeMenu}
           onClick={onClose}
         />
       ) : null}
@@ -40,10 +42,10 @@ export function SidebarNav({
             <div className="text-lg font-bold tracking-tight text-[var(--ink-strong)]">
               {brand}
             </div>
-            <div className="text-xs muted mt-0.5">Workspace</div>
+            <div className="text-xs muted mt-0.5">{t.nav.workspace}</div>
           </Link>
         </div>
-        <nav className="flex flex-col gap-0.5" aria-label="Main">
+        <nav className="flex flex-col gap-0.5" aria-label={t.nav.main}>
           {visible.map((item) => {
             const current =
               pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -66,11 +68,12 @@ export function SidebarNav({
 }
 
 export function MobileMenuButton({ onOpen }: { onOpen: () => void }) {
+  const t = useT();
   return (
     <button
       type="button"
       className="btn btn-ghost md:hidden"
-      aria-label="Open menu"
+      aria-label={t.nav.openMenu}
       onClick={onOpen}
     >
       ☰

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/components/i18n-provider";
 
 export function ClientQuickActions({
   phone,
@@ -14,6 +15,7 @@ export function ClientQuickActions({
     canMeet: boolean;
   };
 }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
 
   function scrollTo(id: string) {
@@ -25,7 +27,7 @@ export function ClientQuickActions({
       {phone ? (
         <>
           <a className="btn btn-secondary" href={`tel:${phone.replace(/\s/g, "")}`}>
-            Telefono
+            {t.quickActions.call}
           </a>
           <button
             type="button"
@@ -40,13 +42,13 @@ export function ClientQuickActions({
               }
             }}
           >
-            {copied ? "U kopjua" : "Kopjo numrin"}
+            {copied ? t.quickActions.copied : t.quickActions.copyPhone}
           </button>
         </>
       ) : null}
       {email ? (
         <a className="btn btn-secondary" href={`mailto:${email}`}>
-          Dërgo email
+          {t.quickActions.email}
         </a>
       ) : null}
       {permissions.canComment ? (
@@ -55,7 +57,7 @@ export function ClientQuickActions({
           className="btn btn-secondary"
           onClick={() => scrollTo("client-comment-box")}
         >
-          Shto koment
+          {t.quickActions.addComment}
         </button>
       ) : null}
       {permissions.canMeet ? (
@@ -64,11 +66,11 @@ export function ClientQuickActions({
           className="btn btn-secondary"
           onClick={() => scrollTo("client-meeting-box")}
         >
-          Cakto takim
+          {t.quickActions.schedule}
         </button>
       ) : null}
       {!phone && !email && !permissions.canComment && !permissions.canMeet ? (
-        <span className="muted text-sm">Nuk ka veprime të shpejta të disponueshme.</span>
+        <span className="muted text-sm">{t.quickActions.none}</span>
       ) : null}
     </div>
   );

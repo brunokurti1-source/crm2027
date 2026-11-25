@@ -9,6 +9,7 @@ import {
   customFieldDefinitionSchema,
   slugifyFieldKey,
 } from "@/lib/custom-fields";
+import { actionT } from "@/lib/i18n/action-t";
 
 function assertAdmin(ctx: Awaited<ReturnType<typeof requireAuth>>) {
   return ctx.user.role === "ADMIN";
@@ -17,8 +18,9 @@ function assertAdmin(ctx: Awaited<ReturnType<typeof requireAuth>>) {
 export async function createCustomFieldAction(
   formData: FormData,
 ): Promise<{ error?: string; ok?: boolean }> {
+  const t = await actionT();
   const ctx = await requireAuth();
-  if (!assertAdmin(ctx)) return { error: "Vetëm administratori." };
+  if (!assertAdmin(ctx)) return { error: t.errors.adminOnly };
 
   const entityType = String(formData.get("entityType") || "CLIENT");
   const label = String(formData.get("label") || "").trim();
@@ -49,10 +51,10 @@ export async function createCustomFieldAction(
     showInFilter,
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message || "Të dhëna të pavlefshme" };
+    return { error: parsed.error.issues[0]?.message || t.errors.invalidData };
   }
   if (!CUSTOM_FIELD_TYPES.includes(parsed.data.dataType as (typeof CUSTOM_FIELD_TYPES)[number])) {
-    return { error: "Lloj i pavlefshëm fushe." };
+    return { error: t.errors.invalidFieldType };
   }
 
   const exists = await prisma.customFieldDefinition.findUnique({
@@ -63,7 +65,7 @@ export async function createCustomFieldAction(
       },
     },
   });
-  if (exists) return { error: "Ky çelës fushe ekziston tashmë." };
+  if (exists) return { error: t.errors.fieldExists };
 
   const max = await prisma.customFieldDefinition.aggregate({
     where: { entityType: parsed.data.entityType },
@@ -100,12 +102,13 @@ export async function createCustomFieldAction(
 export async function updateCustomFieldAction(
   formData: FormData,
 ): Promise<{ error?: string; ok?: boolean }> {
+  const t = await actionT();
   const ctx = await requireAuth();
-  if (!assertAdmin(ctx)) return { error: "Vetëm administratori." };
+  if (!assertAdmin(ctx)) return { error: t.errors.adminOnly };
 
   const id = String(formData.get("id") || "");
   const field = await prisma.customFieldDefinition.findUnique({ where: { id } });
-  if (!field) return { error: "Fusha nuk u gjet." };
+  if (!field) return { error: t.errors.fieldNotFound };
 
   const label = String(formData.get("label") || "").trim();
   const dataType = String(formData.get("dataType") || field.dataType);
@@ -124,9 +127,9 @@ export async function updateCustomFieldAction(
       )
     : null;
 
-  if (!label) return { error: "Emri i fushës është i detyrueshëm." };
+  if (!label) return { error: t.errors.fieldLabelRequired };
   if (!CUSTOM_FIELD_TYPES.includes(dataType as (typeof CUSTOM_FIELD_TYPES)[number])) {
-    return { error: "Lloj i pavlefshëm." };
+    return { error: t.errors.invalidFieldType };
   }
 
   await prisma.customFieldDefinition.update({
@@ -158,17 +161,18 @@ export async function updateCustomFieldAction(
 export async function deleteCustomFieldAction(
   formData: FormData,
 ): Promise<{ error?: string; ok?: boolean }> {
+  const t = await actionT();
   const ctx = await requireAuth();
-  if (!assertAdmin(ctx)) return { error: "Vetëm administratori." };
+  if (!assertAdmin(ctx)) return { error: t.errors.adminOnly };
 
   const id = String(formData.get("id") || "");
   const confirm = String(formData.get("confirm") || "");
   if (confirm !== "PO" && confirm !== "YES") {
-    return { error: "Shkruani PO për të konfirmuar fshirjen e fushës." };
+    return { error: t.errors.confirmYes };
   }
 
   const field = await prisma.customFieldDefinition.findUnique({ where: { id } });
-  if (!field) return { error: "Fusha nuk u gjet." };
+  if (!field) return { error: t.errors.fieldNotFound };
 
   await prisma.customFieldDefinition.delete({ where: { id } });
 

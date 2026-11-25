@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { actionT } from "@/lib/i18n/action-t";
 
 function canManageStatuses(ctx: Awaited<ReturnType<typeof requireAuth>>) {
   return ctx.user.role === "ADMIN" || ctx.user.permissions.manageStatuses;
@@ -12,8 +13,9 @@ function canManageStatuses(ctx: Awaited<ReturnType<typeof requireAuth>>) {
 export async function createStatusAction(
   formData: FormData,
 ): Promise<{ error?: string; ok?: boolean }> {
+  const t = await actionT();
   const ctx = await requireAuth();
-  if (!canManageStatuses(ctx)) return { error: "Nuk keni leje." };
+  if (!canManageStatuses(ctx)) return { error: t.errors.permissionDenied };
 
   const code = String(formData.get("code") || "")
     .trim()
@@ -22,10 +24,10 @@ export async function createStatusAction(
   const labelSq = String(formData.get("labelSq") || "").trim();
   const labelEn = String(formData.get("labelEn") || "").trim() || null;
   const color = String(formData.get("color") || "").trim() || null;
-  if (!code || !labelSq) return { error: "Kodi dhe emri janë të detyrueshëm." };
+  if (!code || !labelSq) return { error: t.errors.statusCodeRequired };
 
   const exists = await prisma.clientStatus.findUnique({ where: { code } });
-  if (exists) return { error: "Ky kod statusi ekziston tashmë." };
+  if (exists) return { error: t.errors.statusExists };
 
   const max = await prisma.clientStatus.aggregate({ _max: { sortOrder: true } });
   await prisma.clientStatus.create({
@@ -54,18 +56,19 @@ export async function createStatusAction(
 export async function updateStatusAction(
   formData: FormData,
 ): Promise<{ error?: string; ok?: boolean }> {
+  const t = await actionT();
   const ctx = await requireAuth();
-  if (!canManageStatuses(ctx)) return { error: "Nuk keni leje." };
+  if (!canManageStatuses(ctx)) return { error: t.errors.permissionDenied };
 
   const id = String(formData.get("id") || "");
   const status = await prisma.clientStatus.findUnique({ where: { id } });
-  if (!status) return { error: "Statusi nuk u gjet." };
+  if (!status) return { error: t.errors.statusNotFound };
 
   const labelSq = String(formData.get("labelSq") || "").trim();
   const labelEn = String(formData.get("labelEn") || "").trim() || null;
   const color = String(formData.get("color") || "").trim() || null;
   const sortOrder = Number(formData.get("sortOrder") || status.sortOrder);
-  if (!labelSq) return { error: "Emri është i detyrueshëm." };
+  if (!labelSq) return { error: t.errors.nameRequired };
 
   await prisma.clientStatus.update({
     where: { id },
@@ -91,14 +94,15 @@ export async function updateStatusAction(
 export async function toggleStatusAction(
   formData: FormData,
 ): Promise<{ error?: string; ok?: boolean }> {
+  const t = await actionT();
   const ctx = await requireAuth();
-  if (!canManageStatuses(ctx)) return { error: "Nuk keni leje." };
+  if (!canManageStatuses(ctx)) return { error: t.errors.permissionDenied };
 
   const id = String(formData.get("id") || "");
   const status = await prisma.clientStatus.findUnique({ where: { id } });
-  if (!status) return { error: "Statusi nuk u gjet." };
+  if (!status) return { error: t.errors.statusNotFound };
   if (status.isSystem && status.active) {
-    return { error: "Statuset e sistemit nuk çaktivizohen." };
+    return { error: t.errors.systemStatusNoDisable };
   }
 
   await prisma.clientStatus.update({
@@ -125,16 +129,17 @@ export async function deleteStatusAction(
   needsReplacement?: boolean;
   clientCount?: number;
 }> {
+  const t = await actionT();
   const ctx = await requireAuth();
-  if (!canManageStatuses(ctx)) return { error: "Nuk keni leje." };
+  if (!canManageStatuses(ctx)) return { error: t.errors.permissionDenied };
 
   const id = String(formData.get("id") || "");
   const confirm = String(formData.get("confirm") || "");
   const replaceWith = String(formData.get("replaceWith") || "").trim();
   const status = await prisma.clientStatus.findUnique({ where: { id } });
-  if (!status) return { error: "Statusi nuk u gjet." };
+  if (!status) return { error: t.errors.statusNotFound };
   if (status.isSystem) {
-    return { error: "Statuset e sistemit nuk fshihen. Riemërtoni ose çaktivizoni." };
+    return { error: t.errors.systemStatusNoDelete };
   }
 
   const clientCount = await prisma.client.count({
@@ -143,14 +148,14 @@ export async function deleteStatusAction(
 
   if (clientCount > 0 && !replaceWith) {
     return {
-      error: `${clientCount} klientë kanë këtë status. Zgjidhni një status zëvendësues ose riemërtoni.`,
+      error: t.errors.statusHasClients.replace("{count}", String(clientCount)),
       needsReplacement: true,
       clientCount,
     };
   }
 
   if (confirm !== "PO" && confirm !== "YES") {
-    return { error: "Shkruani PO për të konfirmuar fshirjen." };
+    return { error: t.errors.confirmYes };
   }
 
   if (clientCount > 0) {
@@ -158,10 +163,10 @@ export async function deleteStatusAction(
       where: { code: replaceWith },
     });
     if (!replacement || !replacement.active) {
-      return { error: "Statusi zëvendësues nuk është i vlefshëm." };
+      return { error: t.errors.invalidReplacement };
     }
     if (replacement.code === status.code) {
-      return { error: "Zgjidhni një status tjetër si zëvendësues." };
+      return { error: t.errors.pickOtherStatus };
     }
 
     await prisma.client.updateMany({

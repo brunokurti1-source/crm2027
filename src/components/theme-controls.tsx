@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/components/i18n-provider";
 
 type Theme = "light" | "dark";
 
@@ -20,13 +21,14 @@ export function ThemeInitScript() {
 }
 
 export function ThemeControls() {
+  const t = useT();
   const [theme, setTheme] = useState<Theme>("light");
   const [scale, setScale] = useState(1);
 
   useEffect(() => {
-    const t = (localStorage.getItem("crm2027_theme") as Theme) || "light";
+    const stored = (localStorage.getItem("crm2027_theme") as Theme) || "light";
     const f = Number(localStorage.getItem("crm2027_font_scale") || "1");
-    setTheme(t);
+    setTheme(stored);
     setScale(Number.isFinite(f) ? f : 1);
   }, []);
 
@@ -35,8 +37,8 @@ export function ThemeControls() {
       <button
         type="button"
         className="btn btn-ghost"
-        aria-label={theme === "dark" ? "Light mode" : "Dark mode"}
-        title={theme === "dark" ? "Mënyra e ndriçuar" : "Mënyra e errët"}
+        aria-label={t.theme.toggleDark}
+        title={t.theme.toggleDark}
         onClick={() => {
           const next = theme === "dark" ? "light" : "dark";
           setTheme(next);
@@ -48,8 +50,8 @@ export function ThemeControls() {
       <button
         type="button"
         className="btn btn-ghost"
-        aria-label="Shrink text"
-        title="Zvogëlo tekstin"
+        aria-label={t.theme.shrink}
+        title={t.theme.shrink}
         onClick={() => {
           const next = Math.max(0.9, Math.round((scale - 0.05) * 100) / 100);
           setScale(next);
@@ -61,8 +63,8 @@ export function ThemeControls() {
       <button
         type="button"
         className="btn btn-ghost"
-        aria-label="Grow text"
-        title="Zmadho tekstin"
+        aria-label={t.theme.grow}
+        title={t.theme.grow}
         onClick={() => {
           const next = Math.min(1.2, Math.round((scale + 0.05) * 100) / 100);
           setScale(next);

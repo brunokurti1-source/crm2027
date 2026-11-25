@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { createUserAction, updateUserAction } from "@/app/actions/users";
 import { PermissionFlags } from "@/lib/permissions";
+import { useT } from "@/components/i18n-provider";
 
 export function UserForm({
   mode,
@@ -35,6 +36,7 @@ export function UserForm({
     permissions: PermissionFlags;
   };
 }) {
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const perms = initial?.permissions || defaultPermissions;
@@ -56,12 +58,17 @@ export function UserForm({
       <div className="grid-form">
         {mode === "create" && (
           <div className="field">
-            <label>Email *</label>
-            <input name="email" type="email" required defaultValue={initial?.email} />
+            <label>{t.users.emailRequired}</label>
+            <input
+              name="email"
+              type="email"
+              required
+              defaultValue={initial?.email}
+            />
           </div>
         )}
         <div className="field">
-          <label>Emri *</label>
+          <label>{t.users.firstName}</label>
           <input
             name="firstName"
             required
@@ -69,7 +76,7 @@ export function UserForm({
           />
         </div>
         <div className="field">
-          <label>Mbiemri *</label>
+          <label>{t.users.lastName}</label>
           <input
             name="lastName"
             required
@@ -77,7 +84,7 @@ export function UserForm({
           />
         </div>
         <div className="field">
-          <label>Roli</label>
+          <label>{t.users.role}</label>
           {mode === "edit" || forceAgent ? (
             <>
               <input
@@ -86,27 +93,35 @@ export function UserForm({
                 value={forceAgent ? "AGENT" : initial?.role || "AGENT"}
               />
               <input
-                value={forceAgent ? "AGENT" : initial?.role || "AGENT"}
+                value={
+                  forceAgent
+                    ? t.roles.AGENT
+                    : t.roles[(initial?.role as keyof typeof t.roles) || "AGENT"] ||
+                      initial?.role ||
+                      "AGENT"
+                }
                 disabled
                 readOnly
               />
             </>
           ) : (
             <select name="role" defaultValue={initial?.role || "AGENT"}>
-              {allowAdminRole && <option value="ADMIN">Administrator</option>}
-              <option value="MANAGER">Menaxher</option>
-              <option value="AGENT">Agjent</option>
+              {allowAdminRole && (
+                <option value="ADMIN">{t.roles.ADMIN}</option>
+              )}
+              <option value="MANAGER">{t.roles.MANAGER}</option>
+              <option value="AGENT">{t.roles.AGENT}</option>
             </select>
           )}
         </div>
         {managers.length > 0 && (
           <div className="field">
-            <label>Menaxheri (për agjent)</label>
+            <label>{t.users.forAgent}</label>
             <select
               name="managerId"
               defaultValue={initial?.managerId || defaultManagerId || ""}
             >
-              <option value="">—</option>
+              <option value="">{t.common.none}</option>
               {managers.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.label}
@@ -120,12 +135,14 @@ export function UserForm({
         )}
         <div className="field">
           <label>
-            {mode === "create" ? "Fjalëkalimi" : "Fjalëkalim i ri (opsional)"}
+            {mode === "create" ? t.users.password : t.users.newPassword}
           </label>
           <input
             name="password"
             type="password"
-            placeholder={mode === "create" ? "Demo123!" : "Lëreni bosh…"}
+            placeholder={
+              mode === "create" ? "Demo123!" : t.users.leaveBlank
+            }
             minLength={mode === "create" ? 6 : undefined}
           />
         </div>
@@ -136,13 +153,13 @@ export function UserForm({
               name="active"
               defaultChecked={initial?.active ?? true}
             />
-            Aktiv
+            {t.users.active}
           </label>
         )}
       </div>
 
       <div>
-        <h3 className="font-semibold mb-2">Lejet</h3>
+        <h3 className="font-semibold mb-2">{t.users.permissions}</h3>
         <div className="grid sm:grid-cols-2 gap-2 text-sm">
           {permissionKeys.map((key) => (
             <label key={key} className="flex items-center gap-2">
@@ -164,7 +181,11 @@ export function UserForm({
       ) : null}
 
       <button className="btn btn-primary" disabled={pending}>
-        {pending ? "Duke ruajtur…" : mode === "create" ? "Krijo" : "Ruaj"}
+        {pending
+          ? t.common.saving
+          : mode === "create"
+            ? t.common.create
+            : t.common.save}
       </button>
     </form>
   );

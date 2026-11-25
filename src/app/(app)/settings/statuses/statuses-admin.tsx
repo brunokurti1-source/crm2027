@@ -7,6 +7,7 @@ import {
   toggleStatusAction,
   deleteStatusAction,
 } from "@/app/actions/statuses";
+import { useT } from "@/components/i18n-provider";
 
 type StatusRow = {
   id: string;
@@ -21,8 +22,15 @@ type StatusRow = {
 };
 
 export function StatusesAdmin({ statuses }: { statuses: StatusRow[] }) {
+  const t = useT();
   const [msg, setMsg] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  const confirmLabel = t.statusesPage.confirmDelete.replace(
+    "{word}",
+    t.common.confirmWord,
+  );
 
   return (
     <div className="space-y-4">
@@ -30,31 +38,38 @@ export function StatusesAdmin({ statuses }: { statuses: StatusRow[] }) {
         className="card p-4 grid gap-3 md:grid-cols-4"
         action={(fd) => {
           setMsg(null);
+          setOk(false);
           startTransition(async () => {
             const res = await createStatusAction(fd);
-            setMsg(res.error || "Statusi u shtua.");
+            if (res.error) {
+              setMsg(res.error);
+              setOk(false);
+            } else {
+              setMsg(t.statusesPage.added);
+              setOk(true);
+            }
           });
         }}
       >
         <div className="field">
-          <label>Kodi</label>
+          <label>{t.statusesPage.code}</label>
           <input name="code" required placeholder="NO_ANSWER" />
         </div>
         <div className="field">
-          <label>Etiketa</label>
+          <label>{t.statusesPage.label}</label>
           <input name="labelSq" required placeholder="No answer" />
         </div>
         <div className="field">
-          <label>EN</label>
+          <label>{t.statusesPage.labelEn}</label>
           <input name="labelEn" />
         </div>
         <button className="btn btn-primary self-end" disabled={pending}>
-          Shto status
+          {t.statusesPage.add}
         </button>
       </form>
 
       {msg ? (
-        <div className={msg.includes("u ") ? "flash-ok" : "flash-err"}>{msg}</div>
+        <div className={ok ? "flash-ok" : "flash-err"}>{msg}</div>
       ) : null}
 
       <div className="space-y-3">
@@ -65,12 +80,15 @@ export function StatusesAdmin({ statuses }: { statuses: StatusRow[] }) {
                 <code className="text-sm">{s.code}</code>
                 <span className="ml-2 font-semibold">{s.labelSq}</span>
                 <span className="muted text-sm ml-2">
-                  {s.clientCount} klientë
-                  {s.isSystem ? " · sistem" : ""}
+                  {t.statusesPage.clientsCount.replace(
+                    "{count}",
+                    String(s.clientCount),
+                  )}
+                  {s.isSystem ? ` · ${t.statusesPage.systemTag}` : ""}
                 </span>
               </div>
               <span className={`badge ${s.active ? "badge-ok" : "badge-warn"}`}>
-                {s.active ? "Aktiv" : "Joaktiv"}
+                {s.active ? t.common.active : t.common.inactive}
               </span>
             </div>
 
@@ -79,21 +97,27 @@ export function StatusesAdmin({ statuses }: { statuses: StatusRow[] }) {
               action={(fd) => {
                 startTransition(async () => {
                   const res = await updateStatusAction(fd);
-                  setMsg(res.error || "U përditësua.");
+                  if (res.error) {
+                    setMsg(res.error);
+                    setOk(false);
+                  } else {
+                    setMsg(t.statusesPage.updated);
+                    setOk(true);
+                  }
                 });
               }}
             >
               <input type="hidden" name="id" value={s.id} />
               <div className="field">
-                <label>Etiketa</label>
+                <label>{t.statusesPage.label}</label>
                 <input name="labelSq" defaultValue={s.labelSq} required />
               </div>
               <div className="field">
-                <label>EN</label>
+                <label>{t.statusesPage.labelEn}</label>
                 <input name="labelEn" defaultValue={s.labelEn || ""} />
               </div>
               <div className="field">
-                <label>Renditja</label>
+                <label>{t.common.sortOrder}</label>
                 <input
                   name="sortOrder"
                   type="number"
@@ -101,11 +125,11 @@ export function StatusesAdmin({ statuses }: { statuses: StatusRow[] }) {
                 />
               </div>
               <div className="field">
-                <label>Ngjyra</label>
+                <label>{t.statusesPage.color}</label>
                 <input name="color" defaultValue={s.color || ""} />
               </div>
               <button className="btn btn-secondary" disabled={pending}>
-                Ruaj
+                {t.common.save}
               </button>
             </form>
 
@@ -115,13 +139,19 @@ export function StatusesAdmin({ statuses }: { statuses: StatusRow[] }) {
                   action={(fd) => {
                     startTransition(async () => {
                       const res = await toggleStatusAction(fd);
-                      setMsg(res.error || "U ndryshua.");
+                      if (res.error) {
+                        setMsg(res.error);
+                        setOk(false);
+                      } else {
+                        setMsg(t.statusesPage.toggled);
+                        setOk(true);
+                      }
                     });
                   }}
                 >
                   <input type="hidden" name="id" value={s.id} />
                   <button className="btn btn-secondary" disabled={pending}>
-                    {s.active ? "Çaktivizo" : "Aktivizo"}
+                    {s.active ? t.common.deactivate : t.common.activate}
                   </button>
                 </form>
               ) : null}
@@ -132,21 +162,25 @@ export function StatusesAdmin({ statuses }: { statuses: StatusRow[] }) {
                   action={(fd) => {
                     startTransition(async () => {
                       const res = await deleteStatusAction(fd);
-                      setMsg(
-                        res.error ||
-                          (res.needsReplacement
-                            ? "Zgjidhni zëvendësuesin."
-                            : "U fshi."),
-                      );
+                      if (res.error) {
+                        setMsg(res.error);
+                        setOk(false);
+                      } else if (res.needsReplacement) {
+                        setMsg(t.statusesPage.needsReplacement);
+                        setOk(false);
+                      } else {
+                        setMsg(t.statusesPage.deleted);
+                        setOk(true);
+                      }
                     });
                   }}
                 >
                   <input type="hidden" name="id" value={s.id} />
                   {s.clientCount > 0 ? (
                     <div className="field">
-                      <label>Zëvendëso me</label>
+                      <label>{t.statusesPage.replaceWith}</label>
                       <select name="replaceWith" required>
-                        <option value="">—</option>
+                        <option value="">{t.common.none}</option>
                         {statuses
                           .filter((x) => x.id !== s.id && x.active)
                           .map((x) => (
@@ -158,11 +192,15 @@ export function StatusesAdmin({ statuses }: { statuses: StatusRow[] }) {
                     </div>
                   ) : null}
                   <div className="field">
-                    <label>Konfirmim (PO)</label>
-                    <input name="confirm" placeholder="PO" required />
+                    <label>{confirmLabel}</label>
+                    <input
+                      name="confirm"
+                      placeholder={t.common.confirmWord}
+                      required
+                    />
                   </div>
                   <button className="btn btn-secondary" disabled={pending}>
-                    Fshi
+                    {t.common.delete}
                   </button>
                 </form>
               ) : null}

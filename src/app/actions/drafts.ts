@@ -3,19 +3,21 @@
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { assertClientInScope, ScopeError } from "@/lib/scope";
+import { actionT } from "@/lib/i18n/action-t";
 
 export async function saveTextDraftAction(input: {
   clientId: string;
   kind: "COMMENT" | "NOTES";
   body: string;
 }): Promise<{ ok?: boolean; error?: string; savedAt?: string }> {
+  const t = await actionT();
   const ctx = await requireAuth();
   if (input.kind === "COMMENT") {
     if (!ctx.user.permissions.commentsAdd && ctx.user.role !== "ADMIN") {
-      return { error: "Nuk keni leje për komente." };
+      return { error: t.errors.noComments };
     }
   } else if (!ctx.user.permissions.clientEdit && ctx.user.role !== "ADMIN") {
-    return { error: "Nuk keni leje për shënime." };
+    return { error: t.errors.noNotes };
   }
 
   try {

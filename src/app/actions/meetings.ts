@@ -4,21 +4,23 @@ import { revalidatePath } from "next/cache";
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logActivity } from "@/lib/audit";
+import { actionT } from "@/lib/i18n/action-t";
 
 export async function createMeetingAction(formData: FormData) {
+  const t = await actionT();
   const ctx = await requireAuth();
   const clientId = String(formData.get("clientId") || "");
   const date = String(formData.get("date") || "");
   const time = String(formData.get("time") || "09:00");
   const notes = String(formData.get("notes") || "").trim();
 
-  if (!clientId || !date) return { error: "Klienti dhe data janë të detyrueshme." };
+  if (!clientId || !date) return { error: t.errors.clientRequired };
 
   const client = await prisma.client.findUnique({ where: { id: clientId } });
-  if (!client) return { error: "Klienti nuk u gjet." };
+  if (!client) return { error: t.errors.clientNotFound };
 
   if (ctx.user.role === "AGENT" && client.agentId !== ctx.user.id) {
-    return { error: "Mund të planifikoni takime vetëm për klientët tuaj." };
+    return { error: t.errors.ownClientsOnly };
   }
 
   const scheduledAt = new Date(`${date}T${time}:00`);
@@ -67,12 +69,13 @@ export async function updateMeetingStatusAction(
   meetingId: string,
   status: "SCHEDULED" | "DONE" | "CANCELLED",
 ) {
+  const t = await actionT();
   const ctx = await requireAuth();
   const meeting = await prisma.meeting.findUnique({ where: { id: meetingId } });
-  if (!meeting) return { error: "Takimi nuk u gjet." };
+  if (!meeting) return { error: t.errors.meetingNotFound };
 
   if (ctx.user.role === "AGENT" && meeting.agentId !== ctx.user.id) {
-    return { error: "Nuk keni akses në këtë takim." };
+    return { error: t.errors.meetingAccess };
   }
 
   await prisma.meeting.update({
@@ -100,13 +103,14 @@ export async function updateMeetingStatusAction(
 }
 
 export async function createReminderAction(formData: FormData) {
+  const t = await actionT();
   const ctx = await requireAuth();
   const title = String(formData.get("title") || "").trim();
   const date = String(formData.get("date") || "");
   const time = String(formData.get("time") || "09:00");
   const notes = String(formData.get("notes") || "").trim();
 
-  if (!title || !date) return { error: "Titulli dhe data janë të detyrueshme." };
+  if (!title || !date) return { error: t.errors.titleRequired };
 
   await prisma.reminder.create({
     data: {
@@ -122,12 +126,13 @@ export async function createReminderAction(formData: FormData) {
 }
 
 export async function toggleReminderAction(reminderId: string) {
+  const t = await actionT();
   const ctx = await requireAuth();
   const reminder = await prisma.reminder.findUnique({
     where: { id: reminderId },
   });
   if (!reminder || reminder.userId !== ctx.user.id) {
-    return { error: "Kujtesa nuk u gjet." };
+    return { error: t.errors.reminderNotFound };
   }
   await prisma.reminder.update({
     where: { id: reminderId },
