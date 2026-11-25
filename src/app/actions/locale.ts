@@ -16,7 +16,8 @@ const COOKIE_OPTS = {
 };
 
 export async function setLocaleAction(formData: FormData): Promise<void> {
-  const raw = String(formData.get("locale") || "");
+  const raw = String(formData.get("locale") || "").toLowerCase().trim();
+  // Never accept Albanian (sq) or unknown codes
   const locale = isLocale(raw) ? raw : DEFAULT_LOCALE;
   const jar = await cookies();
   jar.set(LOCALE_COOKIE, locale, COOKIE_OPTS);
@@ -27,7 +28,9 @@ export async function setLocaleAction(formData: FormData): Promise<void> {
 export async function migrateLocaleCookieAction(): Promise<boolean> {
   const jar = await cookies();
   const raw = jar.get(LOCALE_COOKIE)?.value;
-  if (raw && !isLocale(raw)) {
+  if (!raw) return false;
+  if (raw === "sq" || !isLocale(raw)) {
+    jar.delete(LOCALE_COOKIE);
     jar.set(LOCALE_COOKIE, DEFAULT_LOCALE, COOKIE_OPTS);
     revalidatePath("/", "layout");
     return true;

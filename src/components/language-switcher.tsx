@@ -6,7 +6,10 @@ import {
   setLocaleAction,
   migrateLocaleCookieAction,
 } from "@/app/actions/locale";
-import { LOCALES, LOCALE_LABELS, Locale } from "@/lib/i18n/config";
+import {
+  Locale,
+  localeMenuOptions,
+} from "@/lib/i18n/config";
 
 export function LanguageSwitcher({
   locale,
@@ -19,6 +22,10 @@ export function LanguageSwitcher({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const options = localeMenuOptions();
+  const safeLocale = options.some((o) => o.code === locale)
+    ? locale
+    : options[0]!.code;
 
   useEffect(() => {
     let cancelled = false;
@@ -48,18 +55,18 @@ export function LanguageSwitcher({
         <span className="muted hidden lg:inline text-xs">{label}</span>
       ) : null}
       <select
-        key={locale}
+        key={safeLocale}
         name="locale"
-        defaultValue={locale}
+        value={safeLocale}
         className="select"
         style={{ padding: "0.35rem 0.5rem", fontSize: "0.85rem" }}
         disabled={pending}
         onChange={(e) => e.currentTarget.form?.requestSubmit()}
         aria-label={label || "Language"}
       >
-        {LOCALES.map((code) => (
+        {options.map(({ code, label: optLabel }) => (
           <option key={code} value={code}>
-            {LOCALE_LABELS[code]}
+            {optLabel}
           </option>
         ))}
       </select>
