@@ -1,33 +1,25 @@
 import { requireAuth } from "@/lib/auth";
 import Link from "next/link";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export default async function BackupPage() {
   const ctx = await requireAuth();
+  const { t } = await getDictionary();
   if (ctx.user.role !== "ADMIN") {
-    return <p className="flash-err">Vetëm administratori.</p>;
+    return <p className="flash-err">{t.backup.adminOnly}</p>;
   }
 
   return (
     <div className="space-y-4 max-w-2xl">
       <div>
-        <h1 className="page-title">Kopje rezervë</h1>
-        <p className="page-sub">
-          Shkarkoni një kopje JSON të të dhënave. Ruajeni jashtë sistemit (jo
-          publikisht).
-        </p>
+        <h1 className="page-title">{t.backup.title}</h1>
+        <p className="page-sub">{t.backup.subtitle}</p>
       </div>
       <section className="card p-5 space-y-3 text-sm">
-        <p>
-          Kopja rezervë përfshin klientët, përdoruesit (pa fjalëkalime),
-          statuset, takimet, detyrat, komentet, historikun e kredive dhe
-          auditimin.
-        </p>
-        <p className="muted">
-          Rikthimi: përdorni skedarin e shkarkuar me procedurën e dokumentuar
-          në README (seksioni Backup). Mos e ekspozoni skedarin në ueb publik.
-        </p>
+        <p>{t.backup.includes}</p>
+        <p className="muted">{t.backup.restoreHint}</p>
         <Link href="/api/admin/backup" className="btn btn-primary inline-flex">
-          Shkarko kopje rezervë (JSON)
+          {t.backup.download}
         </Link>
       </section>
     </div>

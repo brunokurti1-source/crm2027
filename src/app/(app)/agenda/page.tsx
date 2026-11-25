@@ -4,9 +4,11 @@ import { formatDateTime, fullName } from "@/lib/format";
 import { AgendaForms } from "./forms";
 import Link from "next/link";
 import { updateMeetingStatusAction, toggleReminderAction } from "@/app/actions/meetings";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export default async function AgendaPage() {
   const ctx = await requireAuth();
+  const { locale, t } = await getDictionary();
 
   const meetingWhere =
     ctx.user.role === "ADMIN"
@@ -57,9 +59,9 @@ export default async function AgendaPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold">Agenda</h1>
+        <h1 className="text-2xl font-bold">{t.agenda.title}</h1>
         <p className="muted text-sm">
-          Takime dhe kujtesa private për{" "}
+          {t.agenda.subtitle}{" "}
           {fullName(ctx.user.firstName, ctx.user.lastName)}.
         </p>
       </div>
@@ -73,7 +75,7 @@ export default async function AgendaPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="card p-4">
-          <h2 className="font-semibold mb-3">Takimet</h2>
+          <h2 className="font-semibold mb-3">{t.agenda.meetings}</h2>
           <ul className="space-y-3 text-sm">
             {meetings.map((m) => (
               <li
@@ -88,7 +90,7 @@ export default async function AgendaPage() {
                     {fullName(m.client.firstName, m.client.lastName)}
                   </Link>
                   <div className="muted">
-                    {formatDateTime(m.scheduledAt)} · {m.status} ·{" "}
+                    {formatDateTime(m.scheduledAt, locale)} · {m.status} ·{" "}
                     {fullName(m.agent.firstName, m.agent.lastName)}
                   </div>
                   {m.notes ? <div>{m.notes}</div> : null}
@@ -103,7 +105,7 @@ export default async function AgendaPage() {
                         }}
                       >
                         <button className="btn btn-secondary" type="submit">
-                          Kryer
+                          {t.agenda.done}
                         </button>
                       </form>
                       <form
@@ -113,7 +115,7 @@ export default async function AgendaPage() {
                         }}
                       >
                         <button className="btn btn-secondary" type="submit">
-                          Anulo
+                          {t.agenda.cancelMeeting}
                         </button>
                       </form>
                     </>
@@ -121,12 +123,14 @@ export default async function AgendaPage() {
                 </div>
               </li>
             ))}
-            {!meetings.length ? <li className="muted">Nuk ka takime</li> : null}
+            {!meetings.length ? (
+              <li className="muted">{t.agenda.noMeetings}</li>
+            ) : null}
           </ul>
         </section>
 
         <section className="card p-4">
-          <h2 className="font-semibold mb-3">Kujtesat e mia</h2>
+          <h2 className="font-semibold mb-3">{t.agenda.myReminders}</h2>
           <ul className="space-y-3 text-sm">
             {reminders.map((r) => (
               <li
@@ -137,7 +141,7 @@ export default async function AgendaPage() {
                   <div className={r.done ? "line-through muted" : "font-medium"}>
                     {r.title}
                   </div>
-                  <div className="muted">{formatDateTime(r.dueAt)}</div>
+                  <div className="muted">{formatDateTime(r.dueAt, locale)}</div>
                   {r.notes ? <div>{r.notes}</div> : null}
                 </div>
                 <form
@@ -147,12 +151,14 @@ export default async function AgendaPage() {
                   }}
                 >
                   <button className="btn btn-secondary" type="submit">
-                    {r.done ? "Rihap" : "Bëj"}
+                    {r.done ? t.agenda.reopen : t.agenda.markDone}
                   </button>
                 </form>
               </li>
             ))}
-            {!reminders.length ? <li className="muted">Nuk ka kujtesa</li> : null}
+            {!reminders.length ? (
+              <li className="muted">{t.agenda.noReminders}</li>
+            ) : null}
           </ul>
         </section>
       </div>

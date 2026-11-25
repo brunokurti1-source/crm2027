@@ -1,11 +1,16 @@
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
-import { markNotificationReadAction, markAllNotificationsReadAction } from "@/app/actions/notifications";
+import {
+  markNotificationReadAction,
+  markAllNotificationsReadAction,
+} from "@/app/actions/notifications";
 import Link from "next/link";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
 
 export default async function NotificationsPage() {
   const ctx = await requireAuth();
+  const { locale, t } = await getDictionary();
   const items = await prisma.notification.findMany({
     where: { userId: ctx.user.id },
     orderBy: { createdAt: "desc" },
@@ -16,12 +21,12 @@ export default async function NotificationsPage() {
     <div className="space-y-4 max-w-3xl">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="page-title">Njoftimet</h1>
-          <p className="page-sub">Takime, detyra dhe njoftime sistemi</p>
+          <h1 className="page-title">{t.notifications.title}</h1>
+          <p className="page-sub">{t.notifications.subtitle}</p>
         </div>
         <form action={markAllNotificationsReadAction}>
           <button className="btn btn-secondary" type="submit">
-            Shëno të gjitha si të lexuara
+            {t.notifications.markAll}
           </button>
         </form>
       </div>
@@ -45,23 +50,23 @@ export default async function NotificationsPage() {
               </div>
               <div className="text-sm muted mt-0.5">{n.body}</div>
               <div className="text-xs muted mt-1">
-                {formatDateTime(n.createdAt)} · {n.kind}
+                {formatDateTime(n.createdAt, locale)} · {n.kind}
               </div>
             </div>
             {!n.readAt ? (
               <form action={markNotificationReadAction}>
                 <input type="hidden" name="id" value={n.id} />
                 <button className="btn btn-ghost" type="submit">
-                  Lexuar
+                  {t.notifications.read}
                 </button>
               </form>
             ) : (
-              <span className="badge">Lexuar</span>
+              <span className="badge">{t.notifications.read}</span>
             )}
           </div>
         ))}
         {!items.length ? (
-          <div className="p-4 muted text-sm">Nuk ka njoftime</div>
+          <div className="p-4 muted text-sm">{t.notifications.none}</div>
         ) : null}
       </div>
     </div>
