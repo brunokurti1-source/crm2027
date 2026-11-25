@@ -5,6 +5,7 @@ import {
   ALL_PERMISSIONS,
   DEFAULT_AGENT_PERMISSIONS,
   DEFAULT_MANAGER_PERMISSIONS,
+  DEFAULT_STATUS_SEED,
   serializePermissions,
 } from "../src/lib/permissions";
 
@@ -22,14 +23,37 @@ async function main() {
 
   console.log("Seeding local demo data...");
 
+  await prisma.notification.deleteMany();
+  await prisma.creditLedger.deleteMany();
+  await prisma.softDelete.deleteMany();
+  await prisma.task.deleteMany();
   await prisma.reminder.deleteMany();
   await prisma.meeting.deleteMany();
   await prisma.comment.deleteMany();
   await prisma.activityLog.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.client.deleteMany();
+  await prisma.clientStatus.deleteMany();
   await prisma.apiKey.deleteMany();
+  await prisma.appSetting.deleteMany();
   await prisma.user.deleteMany();
+
+  for (const s of DEFAULT_STATUS_SEED) {
+    await prisma.clientStatus.create({
+      data: {
+        code: s.code,
+        labelSq: s.labelSq,
+        labelEn: s.labelEn,
+        sortOrder: s.sortOrder,
+        isSystem: s.isSystem,
+        active: true,
+      },
+    });
+  }
+
+  await prisma.appSetting.create({
+    data: { key: "staleContactDays", value: "14" },
+  });
 
   const passwordHash = await bcrypt.hash("Demo123!", 10);
 
@@ -122,7 +146,7 @@ async function main() {
       address: "Tirana",
       country: "Albania",
       leadSource: "Fair",
-      status: "QUALIFIED",
+      status: "FOLLOW_UP",
       creditBalance: 0,
       agentId: agent2.id,
       managerId: manager.id,
@@ -137,7 +161,7 @@ async function main() {
       address: "Durrës",
       country: "Albania",
       leadSource: "Cold call",
-      status: "PROPOSAL",
+      status: "MEETING_SET",
       creditBalance: 1200,
       agentId: agent2.id,
       managerId: manager.id,
@@ -152,10 +176,11 @@ async function main() {
       address: "Shkodër",
       country: "Albania",
       leadSource: "Partner",
-      status: "WON",
+      status: "ACTIVE",
       creditBalance: 2500,
       agentId: agent1.id,
       managerId: manager.id,
+      lastContactAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
     },
   ];
 
@@ -201,17 +226,33 @@ async function main() {
         notes: "Përgatit ofertën",
       },
     });
-    await prisma.activityLog.create({
+    await prisma.task.create({
       data: {
         clientId: firstClient.id,
-        actorId: agent1.id,
-        action: "MEETING_SCHEDULED",
-        description: "Takim i planifikuar (seed)",
+        assigneeId: agent1.id,
+        createdById: manager.id,
+        type: "CALL",
+        title: "Telefonatë ndjekëse",
+        description: "Konfirmo interesin",
+        priority: "HIGH",
+        status: "OPEN",
+        dueAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        remindAt: new Date(Date.now() + 20 * 60 * 60 * 1000),
+      },
+    });
+    await prisma.notification.create({
+      data: {
+        userId: agent1.id,
+        title: "Takim i ardhshëm",
+        body: "Takim me Besnik Hoxha pas 2 ditësh",
+        kind: "MEETING",
+        href: `/clients/${firstClient.id}`,
       },
     });
   }
 
-  const demoKey = process.env.DEMO_API_KEY || "crm_demo_local_api_key_do_not_use_prod";
+  const demoKey =
+    process.env.DEMO_API_KEY || "crm_demo_local_api_key_do_not_use_prod";
   await prisma.apiKey.create({
     data: {
       name: "Local demo key",
@@ -223,11 +264,7 @@ async function main() {
 
   console.log("Seed complete.");
   console.log("Demo accounts (password: Demo123!):");
-  console.log("  admin@crm.local");
-  console.log("  menaxher@crm.local");
-  console.log("  agjent1@crm.local");
-  console.log("  agjent2@crm.local");
-  console.log(`Demo API key: ${demoKey}`);
+  console.log("  admin@crm.local / menaxher@crm.local / agjent1@crm.local");
 }
 
 main()

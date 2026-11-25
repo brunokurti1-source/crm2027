@@ -7,12 +7,15 @@ export type PermissionFlags = {
   clientDelete: boolean;
   creditsAdd: boolean;
   creditsRemove: boolean;
+  creditHistoryView: boolean;
   commentsAdd: boolean;
   commentsDelete: boolean;
   dataUpload: boolean;
   dataDelete: boolean;
+  dataExport: boolean;
   manageAgents: boolean;
   manageClients: boolean;
+  manageStatuses: boolean;
   impersonate: boolean;
 };
 
@@ -23,12 +26,15 @@ export const PERMISSION_KEYS = [
   "clientDelete",
   "creditsAdd",
   "creditsRemove",
+  "creditHistoryView",
   "commentsAdd",
   "commentsDelete",
   "dataUpload",
   "dataDelete",
+  "dataExport",
   "manageAgents",
   "manageClients",
+  "manageStatuses",
   "impersonate",
 ] as const;
 
@@ -39,12 +45,15 @@ export const PERMISSION_LABELS: Record<keyof PermissionFlags, string> = {
   clientDelete: "Fshi klientë",
   creditsAdd: "Shto kredi",
   creditsRemove: "Hiq kredi",
+  creditHistoryView: "Shiko historikun e kredive",
   commentsAdd: "Shto komente",
   commentsDelete: "Fshi komente",
   dataUpload: "Ngarko të dhëna",
   dataDelete: "Fshi të dhëna",
+  dataExport: "Eksporto klientë",
   manageAgents: "Menaxho agjentët",
   manageClients: "Menaxho caktimet e klientëve",
+  manageStatuses: "Menaxho statuset",
   impersonate: "Impersono përdorues",
 };
 
@@ -55,12 +64,15 @@ export const ALL_PERMISSIONS: PermissionFlags = {
   clientDelete: true,
   creditsAdd: true,
   creditsRemove: true,
+  creditHistoryView: true,
   commentsAdd: true,
   commentsDelete: true,
   dataUpload: true,
   dataDelete: true,
+  dataExport: true,
   manageAgents: true,
   manageClients: true,
+  manageStatuses: true,
   impersonate: true,
 };
 
@@ -71,12 +83,15 @@ export const DEFAULT_MANAGER_PERMISSIONS: PermissionFlags = {
   clientDelete: false,
   creditsAdd: true,
   creditsRemove: true,
+  creditHistoryView: true,
   commentsAdd: true,
   commentsDelete: true,
   dataUpload: false,
   dataDelete: false,
+  dataExport: true,
   manageAgents: true,
   manageClients: true,
+  manageStatuses: false,
   impersonate: true,
 };
 
@@ -87,12 +102,15 @@ export const DEFAULT_AGENT_PERMISSIONS: PermissionFlags = {
   clientDelete: false,
   creditsAdd: false,
   creditsRemove: false,
+  creditHistoryView: false,
   commentsAdd: true,
   commentsDelete: false,
   dataUpload: false,
   dataDelete: false,
+  dataExport: false,
   manageAgents: false,
   manageClients: false,
+  manageStatuses: false,
   impersonate: false,
 };
 
@@ -132,24 +150,28 @@ export const ROLE_LABELS: Record<Role, string> = {
   AGENT: "Agjent",
 };
 
-export const CLIENT_STATUSES = [
-  "NEW",
-  "CONTACTED",
-  "QUALIFIED",
-  "PROPOSAL",
-  "WON",
-  "LOST",
-  "ARCHIVED",
+/** Fallback codes if DB statuses are empty */
+export const DEFAULT_STATUS_SEED = [
+  { code: "NEW", labelSq: "I ri", labelEn: "New", sortOrder: 10, isSystem: true },
+  { code: "AWAITING_CONTACT", labelSq: "Në pritje të kontaktit", labelEn: "Awaiting contact", sortOrder: 20, isSystem: true },
+  { code: "CONTACTED", labelSq: "Në kontakt", labelEn: "In contact", sortOrder: 30, isSystem: true },
+  { code: "MEETING_SET", labelSq: "Takim i caktuar", labelEn: "Meeting set", sortOrder: 40, isSystem: true },
+  { code: "FOLLOW_UP", labelSq: "Në ndjekje", labelEn: "Follow-up", sortOrder: 50, isSystem: true },
+  { code: "ACTIVE", labelSq: "Klient aktiv", labelEn: "Active client", sortOrder: 60, isSystem: true },
+  { code: "CLOSED", labelSq: "I mbyllur", labelEn: "Closed", sortOrder: 70, isSystem: true },
+  { code: "UNSUITABLE", labelSq: "I papërshtatshëm", labelEn: "Unsuitable", sortOrder: 80, isSystem: true },
+  { code: "ARCHIVED", labelSq: "Arkivuar", labelEn: "Archived", sortOrder: 90, isSystem: true },
+  // legacy codes kept for existing rows
+  { code: "QUALIFIED", labelSq: "I kualifikuar", labelEn: "Qualified", sortOrder: 35, isSystem: true },
+  { code: "PROPOSAL", labelSq: "Propozim", labelEn: "Proposal", sortOrder: 45, isSystem: true },
+  { code: "WON", labelSq: "Fituar", labelEn: "Won", sortOrder: 65, isSystem: true },
+  { code: "LOST", labelSq: "Humbur", labelEn: "Lost", sortOrder: 75, isSystem: true },
 ] as const;
 
-export type ClientStatus = (typeof CLIENT_STATUSES)[number];
+export const CLIENT_STATUSES = DEFAULT_STATUS_SEED.map((s) => s.code);
 
-export const STATUS_LABELS: Record<ClientStatus, string> = {
-  NEW: "I ri",
-  CONTACTED: "Kontaktuar",
-  QUALIFIED: "I kualifikuar",
-  PROPOSAL: "Propozim",
-  WON: "Fituar",
-  LOST: "Humbur",
-  ARCHIVED: "Arkivuar",
-};
+export type ClientStatusCode = (typeof DEFAULT_STATUS_SEED)[number]["code"] | string;
+
+export const STATUS_LABELS: Record<string, string> = Object.fromEntries(
+  DEFAULT_STATUS_SEED.map((s) => [s.code, s.labelSq]),
+);

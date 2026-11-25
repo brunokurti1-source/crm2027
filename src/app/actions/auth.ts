@@ -91,19 +91,22 @@ export async function startImpersonationAction(formData: FormData): Promise<void
     redirect("/dashboard?error=permission");
   }
 
-  const session = await getSession();
-  session.realUserId = ctx.realUser.id;
-  session.userId = ctx.realUser.id;
-  session.impersonatingUserId = target.id;
-  session.isLoggedIn = true;
-  await session.save();
-
-  await logAudit({
+  const startedAt = new Date();
+  const audit = await logAudit({
     actorId: ctx.realUser.id,
     targetUserId: target.id,
     action: "IMPERSONATION_START",
     details: `${ctx.realUser.email} filloi impersonimin e ${target.email} (${target.role})`,
+    startedAt,
   });
+
+  const session = await getSession();
+  session.realUserId = ctx.realUser.id;
+  session.userId = ctx.realUser.id;
+  session.impersonatingUserId = target.id;
+  session.impersonationAuditId = audit.id;
+  session.isLoggedIn = true;
+  await session.save();
 
   redirect("/dashboard");
 }
@@ -114,17 +117,32 @@ export async function stopImpersonationAction(): Promise<void> {
 
   const session = await getSession();
   const targetId = session.impersonatingUserId;
-  session.impersonatingUserId = undefined;
-  session.realUserId = undefined;
-  session.userId = ctx.realUser.id;
-  await session.save();
+  const auditId = session.impersonationAuditId;
+  const endedAt = new Date();
+
+  if (auditId) {
+    await prisma.auditLog.update({
+      where: { id: auditId },
+      data: {
+        endedAt,
+        details: `${ctx.realUser.email} ndaloi impersonimin e llogarisë ${targetId ?? "—"} (përfundoi ${endedAt.toISOString()})`,
+      },
+    });
+  }
 
   await logAudit({
     actorId: ctx.realUser.id,
     targetUserId: targetId,
     action: "IMPERSONATION_STOP",
     details: `${ctx.realUser.email} ndaloi impersonimin`,
+    endedAt,
   });
+
+  session.impersonatingUserId = undefined;
+  session.realUserId = undefined;
+  session.impersonationAuditId = undefined;
+  session.userId = ctx.realUser.id;
+  await session.save();
 
   redirect("/dashboard");
 }

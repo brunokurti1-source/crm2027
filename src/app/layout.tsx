@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { Source_Sans_3, IBM_Plex_Mono } from "next/font/google";
+import { ThemeInitScript } from "@/components/theme-controls";
 import "./globals.css";
 
 const display = Source_Sans_3({
   variable: "--font-display",
-  subsets: ["latin"],
+  subsets: ["latin", "latin-ext"],
 });
 
 const mono = IBM_Plex_Mono({
@@ -24,7 +25,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="sq">
+    <html lang="sq" suppressHydrationWarning>
+      <head>
+        <ThemeInitScript />
+      </head>
       <body className={`${display.variable} ${mono.variable} antialiased`}>
         {children}
       </body>

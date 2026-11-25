@@ -2,7 +2,8 @@ import Link from "next/link";
 import { requireAuth, clientScopeWhere } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { StatCard } from "@/components/stat-card";
-import { STATUS_LABELS, ClientStatus } from "@/lib/permissions";
+import { StatusBadge } from "@/components/status-badge";
+import { STATUS_LABELS } from "@/lib/permissions";
 import { formatDateTime, fullName } from "@/lib/format";
 
 export default async function DashboardPage({
@@ -14,35 +15,34 @@ export default async function DashboardPage({
   const sp = await searchParams;
   const scope = clientScopeWhere(ctx);
 
+  const staleDaysSetting = await prisma.appSetting
+    .findUnique({ where: { key: "staleContactDays" } })
+    .catch(() => null);
+  const staleDays = Number(staleDaysSetting?.value || 14);
+  const staleBefore = new Date(Date.now() - staleDays * 24 * 60 * 60 * 1000);
+
   const [
     totalClients,
-    byStatus,
-    recentActivity,
+    newClients,
     upcomingMeetings,
-    agents,
-    managers,
+    openTasks,
+    overdueTasks,
+    unreadNotifs,
+    staleClients,
+    recentActivity,
   ] = await Promise.all([
     prisma.client.count({ where: { ...scope, archived: false } }),
-    prisma.client.groupBy({
-      by: ["status"],
-      where: { ...scope, archived: false },
-      _count: { _all: true },
-    }),
-    prisma.activityLog.findMany({
-      where:
-        ctx.user.role === "ADMIN"
-          ? {}
-          : {
-              OR: [
-                { client: scope },
-                { actorId: ctx.user.id },
-              ],
-            },
+    prisma.client.findMany({
+      where: { ...scope, archived: false, status: "NEW" },
+      take: 5,
       orderBy: { createdAt: "desc" },
-      take: 8,
-      include: {
-        actor: { select: { firstName: true, lastName: true } },
-        client: { select: { firstName: true, lastName: true, clientIdNumber: true } },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        clientIdNumber: true,
+        status: true,
+        createdAt: true,
       },
     }),
     prisma.meeting.findMany({
@@ -54,7 +54,6 @@ export default async function DashboardPage({
           : ctx.user.role === "MANAGER"
             ? {
                 OR: [
-                  { agentId: ctx.user.id },
                   { agent: { managerId: ctx.user.id } },
                   { client: { managerId: ctx.user.id } },
                 ],
@@ -62,129 +61,174 @@ export default async function DashboardPage({
             : { agentId: ctx.user.id }),
       },
       orderBy: { scheduledAt: "asc" },
-      take: 6,
+      take: 5,
       include: {
-        client: { select: { firstName: true, lastName: true, id: true } },
-        agent: { select: { firstName: true, lastName: true } },
+        client: { select: { id: true, firstName: true, lastName: true } },
       },
     }),
-    ctx.user.role === "ADMIN" || ctx.user.role === "MANAGER"
-      ? prisma.client.groupBy({
-          by: ["agentId"],
-          where: { ...scope, archived: false, agentId: { not: null } },
-          _count: { _all: true },
-        })
-      : Promise.resolve([]),
-    ctx.user.role === "ADMIN"
-      ? prisma.client.groupBy({
-          by: ["managerId"],
-          where: { archived: false, managerId: { not: null } },
-          _count: { _all: true },
-        })
-      : Promise.resolve([]),
+    prisma.task.findMany({
+      where: {
+        status: "OPEN",
+        dueAt: {
+          gte: new Date(new Date().setHours(0, 0, 0, 0)),
+          lt: new Date(new Date().setHours(24, 0, 0, 0)),
+        },
+        ...(ctx.user.role === "ADMIN" ? {} : { assigneeId: ctx.user.id }),
+      },
+      orderBy: { dueAt: "asc" },
+      take: 6,
+      include: {
+        client: { select: { id: true, firstName: true, lastName: true } },
+      },
+    }).catch(() => []),
+    prisma.task.count({
+      where: {
+        status: "OPEN",
+        dueAt: { lt: new Date() },
+        ...(ctx.user.role === "ADMIN" ? {} : { assigneeId: ctx.user.id }),
+      },
+    }).catch(() => 0),
+    prisma.notification.findMany({
+      where: { userId: ctx.user.id, readAt: null },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    }).catch(() => []),
+    prisma.client.findMany({
+      where: {
+        ...scope,
+        archived: false,
+        OR: [{ lastContactAt: null }, { lastContactAt: { lt: staleBefore } }],
+      },
+      take: 5,
+      orderBy: { lastContactAt: "asc" },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        clientIdNumber: true,
+        lastContactAt: true,
+      },
+    }),
+    prisma.activityLog.findMany({
+      where:
+        ctx.user.role === "ADMIN"
+          ? {}
+          : { OR: [{ client: scope }, { actorId: ctx.user.id }] },
+      orderBy: { createdAt: "desc" },
+      take: 6,
+      include: {
+        actor: { select: { firstName: true, lastName: true } },
+        client: {
+          select: { firstName: true, lastName: true, clientIdNumber: true },
+        },
+      },
+    }),
   ]);
-
-  const agentIds = agents.map((a) => a.agentId).filter(Boolean) as string[];
-  const managerIds = managers.map((m) => m.managerId).filter(Boolean) as string[];
-  const people = await prisma.user.findMany({
-    where: { id: { in: [...agentIds, ...managerIds] } },
-    select: { id: true, firstName: true, lastName: true },
-  });
-  const nameById = Object.fromEntries(
-    people.map((p) => [p.id, fullName(p.firstName, p.lastName)]),
-  );
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Paneli</h1>
-          <p className="muted text-sm">
-            Mirë se vini, {ctx.user.firstName}. Të dhënat sipas rolit tuaj.
+          <h1 className="page-title">Paneli</h1>
+          <p className="page-sub">
+            Mirë se vini, {ctx.user.firstName}. Informacioni më i dobishëm për
+            ditën.
           </p>
         </div>
         <Link href="/clients" className="btn btn-primary">
-          Shiko klientët
+          Klientët
         </Link>
       </div>
 
       {sp.error === "permission" ? (
-        <div className="card p-3 text-sm text-[var(--danger)] bg-[var(--danger-bg)]">
-          Nuk keni leje për këtë veprim.
-        </div>
+        <div className="flash-err">Nuk keni leje për këtë veprim.</div>
       ) : null}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Klientë aktivë" value={totalClients} />
-        {byStatus.slice(0, 3).map((s) => (
-          <StatCard
-            key={s.status}
-            label={STATUS_LABELS[s.status as ClientStatus] || s.status}
-            value={s._count._all}
-          />
-        ))}
+        <StatCard label="Detyra sot" value={openTasks.length} />
+        <StatCard label="Detyra të vonuara" value={overdueTasks} />
+        <StatCard label="Takime të ardhshme" value={upcomingMeetings.length} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="card p-4">
-          <h2 className="font-semibold mb-3">Sipas statusit</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-[var(--ink-strong)]">
+              Klientë të rinj
+            </h2>
+            <Link href="/clients?status=NEW" className="text-sm text-[var(--brand)]">
+              Shiko të gjithë
+            </Link>
+          </div>
           <ul className="space-y-2 text-sm">
-            {byStatus.map((s) => (
-              <li key={s.status} className="flex justify-between">
-                <span>{STATUS_LABELS[s.status as ClientStatus] || s.status}</span>
-                <strong>{s._count._all}</strong>
+            {newClients.map((c) => (
+              <li
+                key={c.id}
+                className="flex items-center justify-between gap-2 border-b border-[var(--line-soft)] pb-2"
+              >
+                <Link href={`/clients/${c.id}`} className="font-medium">
+                  {fullName(c.firstName, c.lastName)}
+                  <span className="muted text-xs ml-2">{c.clientIdNumber}</span>
+                </Link>
+                <StatusBadge code={c.status} label={STATUS_LABELS[c.status]} />
               </li>
             ))}
-            {!byStatus.length ? <li className="muted">Nuk ka të dhëna</li> : null}
+            {!newClients.length ? (
+              <li className="muted">Nuk ka klientë të rinj</li>
+            ) : null}
           </ul>
         </section>
 
-        {(ctx.user.role === "ADMIN" || ctx.user.role === "MANAGER") && (
-          <section className="card p-4">
-            <h2 className="font-semibold mb-3">Sipas agjentit</h2>
-            <ul className="space-y-2 text-sm">
-              {agents.map((a) => (
-                <li key={String(a.agentId)} className="flex justify-between">
-                  <span>{nameById[a.agentId!] || "—"}</span>
-                  <strong>{a._count._all}</strong>
-                </li>
-              ))}
-              {!agents.length ? <li className="muted">Nuk ka caktime</li> : null}
-            </ul>
-            {ctx.user.role === "ADMIN" ? (
-              <>
-                <h2 className="font-semibold mb-3 mt-5">Sipas menaxherit</h2>
-                <ul className="space-y-2 text-sm">
-                  {managers.map((m) => (
-                    <li key={String(m.managerId)} className="flex justify-between">
-                      <span>{nameById[m.managerId!] || "—"}</span>
-                      <strong>{m._count._all}</strong>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : null}
-          </section>
-        )}
-
         <section className="card p-4">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold">Takime të ardhshme</h2>
-            <Link href="/agenda" className="text-sm text-[var(--brand)]">
-              Agenda
+            <h2 className="font-semibold text-[var(--ink-strong)]">
+              Detyrat e sotme
+            </h2>
+            <Link href="/tasks" className="text-sm text-[var(--brand)]">
+              Agjenda e detyrave
             </Link>
           </div>
-          <ul className="space-y-3 text-sm">
-            {upcomingMeetings.map((m) => (
-              <li key={m.id} className="border-b border-[var(--line)] pb-2">
-                <div className="font-medium">
-                  <Link href={`/clients/${m.client.id}`}>
-                    {fullName(m.client.firstName, m.client.lastName)}
-                  </Link>
+          <ul className="space-y-2 text-sm">
+            {openTasks.map((t) => (
+              <li
+                key={t.id}
+                className="border-b border-[var(--line-soft)] pb-2"
+              >
+                <div className="font-medium">{t.title}</div>
+                <div className="muted text-xs">
+                  {formatDateTime(t.dueAt)}
+                  {t.client
+                    ? ` · ${fullName(t.client.firstName, t.client.lastName)}`
+                    : ""}
+                  {t.priority === "HIGH" ? " · Prioritet i lartë" : ""}
                 </div>
-                <div className="muted">
-                  {formatDateTime(m.scheduledAt)} ·{" "}
-                  {fullName(m.agent.firstName, m.agent.lastName)}
+              </li>
+            ))}
+            {!openTasks.length ? (
+              <li className="muted">Nuk ka detyra për sot</li>
+            ) : null}
+          </ul>
+        </section>
+
+        <section className="card p-4">
+          <h2 className="font-semibold text-[var(--ink-strong)] mb-3">
+            Takime të ardhshme
+          </h2>
+          <ul className="space-y-2 text-sm">
+            {upcomingMeetings.map((m) => (
+              <li
+                key={m.id}
+                className="border-b border-[var(--line-soft)] pb-2"
+              >
+                <Link
+                  href={`/clients/${m.client.id}`}
+                  className="font-medium"
+                >
+                  {fullName(m.client.firstName, m.client.lastName)}
+                </Link>
+                <div className="muted text-xs">
+                  {formatDateTime(m.scheduledAt)}
                 </div>
               </li>
             ))}
@@ -195,28 +239,71 @@ export default async function DashboardPage({
         </section>
 
         <section className="card p-4">
-          <h2 className="font-semibold mb-3">Aktiviteti i fundit</h2>
-          <ul className="space-y-3 text-sm">
-            {recentActivity.map((a) => (
-              <li key={a.id} className="border-b border-[var(--line)] pb-2">
-                <div>{a.description}</div>
-                <div className="muted text-xs">
-                  {formatDateTime(a.createdAt)}
-                  {a.actor
-                    ? ` · ${fullName(a.actor.firstName, a.actor.lastName)}`
-                    : ""}
-                  {a.client
-                    ? ` · ${a.client.clientIdNumber}`
-                    : ""}
-                </div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-[var(--ink-strong)]">
+              Njoftime
+            </h2>
+            <Link
+              href="/notifications"
+              className="text-sm text-[var(--brand)]"
+            >
+              Të gjitha
+            </Link>
+          </div>
+          <ul className="space-y-2 text-sm">
+            {unreadNotifs.map((n) => (
+              <li
+                key={n.id}
+                className="border-b border-[var(--line-soft)] pb-2"
+              >
+                <div className="font-medium">{n.title}</div>
+                <div className="muted text-xs">{n.body}</div>
               </li>
             ))}
-            {!recentActivity.length ? (
-              <li className="muted">Nuk ka aktivitet</li>
+            {!unreadNotifs.length ? (
+              <li className="muted">Nuk ka njoftime të reja</li>
+            ) : null}
+          </ul>
+          <h3 className="font-semibold text-sm mt-4 mb-2">
+            Pa kontakt ≥ {staleDays} ditë
+          </h3>
+          <ul className="space-y-2 text-sm">
+            {staleClients.map((c) => (
+              <li key={c.id}>
+                <Link href={`/clients/${c.id}`} className="text-[var(--brand)]">
+                  {fullName(c.firstName, c.lastName)}
+                </Link>
+              </li>
+            ))}
+            {!staleClients.length ? (
+              <li className="muted">Nuk ka klientë të vonuar</li>
             ) : null}
           </ul>
         </section>
       </div>
+
+      <section className="card p-4">
+        <h2 className="font-semibold text-[var(--ink-strong)] mb-3">
+          Aktiviteti i fundit
+        </h2>
+        <ul className="space-y-2 text-sm">
+          {recentActivity.map((a) => (
+            <li
+              key={a.id}
+              className="border-b border-[var(--line-soft)] pb-2 flex flex-wrap gap-2 justify-between"
+            >
+              <span>{a.description}</span>
+              <span className="muted text-xs">
+                {formatDateTime(a.createdAt)}
+                {a.viaImpersonationOf ? " · (impersonim)" : ""}
+              </span>
+            </li>
+          ))}
+          {!recentActivity.length ? (
+            <li className="muted">Nuk ka aktivitet</li>
+          ) : null}
+        </ul>
+      </section>
     </div>
   );
 }

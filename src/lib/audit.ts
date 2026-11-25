@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getSession } from "@/lib/session";
 
 export async function logActivity(input: {
   clientId?: string | null;
@@ -7,6 +8,16 @@ export async function logActivity(input: {
   description: string;
   metadata?: Record<string, unknown>;
 }) {
+  let viaImpersonationOf: string | null = null;
+  try {
+    const session = await getSession();
+    if (session.impersonatingUserId && session.realUserId) {
+      viaImpersonationOf = session.impersonatingUserId;
+    }
+  } catch {
+    // ignore outside request context
+  }
+
   await prisma.activityLog.create({
     data: {
       clientId: input.clientId ?? null,
@@ -14,6 +25,7 @@ export async function logActivity(input: {
       action: input.action,
       description: input.description,
       metadata: input.metadata ? JSON.stringify(input.metadata) : null,
+      viaImpersonationOf,
     },
   });
 }
@@ -23,13 +35,17 @@ export async function logAudit(input: {
   targetUserId?: string | null;
   action: string;
   details: string;
+  startedAt?: Date | null;
+  endedAt?: Date | null;
 }) {
-  await prisma.auditLog.create({
+  return prisma.auditLog.create({
     data: {
       actorId: input.actorId ?? null,
       targetUserId: input.targetUserId ?? null,
       action: input.action,
       details: input.details,
+      startedAt: input.startedAt ?? null,
+      endedAt: input.endedAt ?? null,
     },
   });
 }

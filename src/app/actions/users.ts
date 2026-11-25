@@ -29,7 +29,7 @@ const userSchema = z.object({
   lastName: z.string().min(1),
   role: z.enum(["ADMIN", "MANAGER", "AGENT"]),
   managerId: z.string().optional().nullable(),
-  password: z.string().min(6).optional(),
+  password: z.string().min(8).optional(),
   active: z.boolean().optional(),
 });
 
@@ -48,7 +48,7 @@ export async function createUserAction(formData: FormData) {
     return { error: "Menaxheri mund të krijojë vetëm agjentë." };
   }
 
-  const password = String(formData.get("password") || "Demo123!");
+  const password = String(formData.get("password") || "");
   const parsed = userSchema.safeParse({
     email: String(formData.get("email") || "")
       .trim()
@@ -79,21 +79,13 @@ export async function createUserAction(formData: FormData) {
     permissions = { ...DEFAULT_MANAGER_PERMISSIONS };
   }
   if (role === "ADMIN") {
-    permissions = {
-      clientView: true,
-      clientAdd: true,
-      clientEdit: true,
-      clientDelete: true,
-      creditsAdd: true,
-      creditsRemove: true,
-      commentsAdd: true,
-      commentsDelete: true,
-      dataUpload: true,
-      dataDelete: true,
-      manageAgents: true,
-      manageClients: true,
-      impersonate: true,
-    };
+    const { ALL_PERMISSIONS } = await import("@/lib/permissions");
+    permissions = { ...ALL_PERMISSIONS };
+  }
+
+  // Require explicit password (no predictable default)
+  if (!String(formData.get("password") || "") || String(formData.get("password")).length < 8) {
+    return { error: "Fjalëkalimi duhet të ketë të paktën 8 karaktere." };
   }
 
   const user = await prisma.user.create({

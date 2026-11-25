@@ -5,10 +5,8 @@ import {
   updateClientAction,
   adjustCreditsAction,
   addCommentAction,
-  deleteCommentAction,
-  assignClientAction,
   archiveClientAction,
-  deleteClientAction,
+  softDeleteClientAction,
 } from "@/app/actions/clients";
 import { createMeetingAction } from "@/app/actions/meetings";
 
@@ -176,8 +174,8 @@ export function ClientDetailActions({
             <input name="amount" type="number" step="0.01" required />
           </div>
           <div className="field">
-            <label>Arsyeja</label>
-            <input name="reason" />
+            <label>Arsyeja / shënimi *</label>
+            <input name="reason" required />
           </div>
           <button className="btn btn-secondary" disabled={pending}>
             Përditëso kredinë
@@ -247,27 +245,28 @@ export function ClientDetailActions({
           className="card p-4 space-y-2"
           action={(fd) =>
             run(() =>
-              deleteClientAction(client.id, String(fd.get("confirm") || "")),
+              softDeleteClientAction(
+                client.id,
+                String(fd.get("confirm") || ""),
+              ),
             )
           }
         >
-          <h3 className="font-semibold text-[var(--danger)]">Fshi të dhënat</h3>
+          <h3 className="font-semibold text-[var(--danger)]">
+            Zhvendos te Të fshira
+          </h3>
+          <p className="text-xs muted">
+            Klienti nuk fshihet përgjithmonë; administratori mund ta rikthejë.
+          </p>
           <div className="field">
             <label>Shkruani FSHIJ për konfirmim</label>
-            <input name="confirm" />
+            <input name="confirm" required />
           </div>
           <button className="btn btn-danger" disabled={pending}>
-            Fshi përgjithmonë
+            Konfirmo fshirjen
           </button>
         </form>
       )}
-
-      {/* silence unused import warning if tree-shaken oddly */}
-      <span className="hidden">
-        {permissions.canDeleteComment ? "x" : ""}
-        {typeof deleteCommentAction}
-        {typeof assignClientAction}
-      </span>
     </div>
   );
 }

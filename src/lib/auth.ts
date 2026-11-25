@@ -66,12 +66,13 @@ export async function getAuthContext(): Promise<AuthContext | null> {
       : prisma.user.findUnique({ where: { id: effectiveId } }),
   ]);
 
-  if (!realRow || !realRow.active) return null;
+  if (!realRow || !realRow.active || realRow.deletedAt) return null;
 
   const realUser = toAuthUser(realRow);
-  const user = effectiveRow && effectiveRow.active
-    ? toAuthUser(effectiveRow)
-    : realUser;
+  const user =
+    effectiveRow && effectiveRow.active && !effectiveRow.deletedAt
+      ? toAuthUser(effectiveRow)
+      : realUser;
 
   return {
     user,
@@ -116,17 +117,24 @@ export function canAccessClient(
 }
 
 /** Build Prisma where clause for clients visible to the current user */
-export function clientScopeWhere(ctx: AuthContext): Record<string, unknown> {
-  if (ctx.user.role === "ADMIN") return {};
+export function clientScopeWhere(
+  ctx: AuthContext,
+  opts?: { includeDeleted?: boolean },
+): Record<string, unknown> {
+  const base: Record<string, unknown> = opts?.includeDeleted
+    ? {}
+    : { deletedAt: null };
+  if (ctx.user.role === "ADMIN") return base;
   if (ctx.user.role === "MANAGER") {
     return {
+      ...base,
       OR: [
         { managerId: ctx.user.id },
         { agent: { managerId: ctx.user.id } },
       ],
     };
   }
-  return { agentId: ctx.user.id };
+  return { ...base, agentId: ctx.user.id };
 }
 
 export async function getAgentIdsInScope(ctx: AuthContext): Promise<string[] | "all"> {

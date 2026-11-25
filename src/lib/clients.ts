@@ -108,6 +108,7 @@ export async function findDuplicateClient(input: {
 
   return prisma.client.findFirst({
     where: {
+      deletedAt: null,
       OR: or,
       ...(input.excludeId ? { NOT: { id: input.excludeId } } : {}),
     },

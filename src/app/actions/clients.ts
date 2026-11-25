@@ -2,29 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { z } from "zod";
 import { getAuthContext, requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { logActivity, logAudit } from "@/lib/audit";
 import { findDuplicateClient } from "@/lib/clients";
-import { CLIENT_STATUSES } from "@/lib/permissions";
-
-const clientSchema = z.object({
-  clientIdNumber: z.string().min(1, "ID e klientit është e detyrueshme"),
-  firstName: z.string().min(1, "Emri është i detyrueshëm"),
-  lastName: z.string().min(1, "Mbiemri është i detyrueshëm"),
-  phone: z.string().optional().nullable(),
-  email: z.string().email().optional().or(z.literal("")).nullable(),
-  company: z.string().optional().nullable(),
-  address: z.string().optional().nullable(),
-  country: z.string().optional().nullable(),
-  leadSource: z.string().optional().nullable(),
-  status: z.enum(CLIENT_STATUSES).default("NEW"),
-  notes: z.string().optional().nullable(),
-  agentId: z.string().optional().nullable(),
-  managerId: z.string().optional().nullable(),
-  creditBalance: z.coerce.number().optional(),
-});
+import { clientUpsertSchema, normalizeOptional } from "@/lib/validation";
+import { ScopeError, assertClientInScope } from "@/lib/scope";
+import { recordSoftDelete } from "@/lib/soft-delete";
 
 function formToObject(formData: FormData) {
   const get = (k: string) => {
@@ -50,27 +34,41 @@ function formToObject(formData: FormData) {
   };
 }
 
+function errMsg(e: unknown, fallback: string) {
+  if (e instanceof ScopeError) return e.message;
+  if (e instanceof Error) return e.message;
+  return fallback;
+}
+
 export async function createClientAction(formData: FormData) {
   const ctx = await requireAuth();
   if (!ctx.user.permissions.clientAdd && ctx.user.role !== "ADMIN") {
     return { error: "Nuk keni leje për të shtuar klientë." };
   }
 
-  const parsed = clientSchema.safeParse(formToObject(formData));
+  const parsed = clientUpsertSchema.safeParse(formToObject(formData));
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message || "Të dhëna të pavlefshme" };
   }
 
   const data = parsed.data;
+  const email = normalizeOptional(data.email ?? null);
+  const phone = normalizeOptional(data.phone ?? null);
+
+  const statusExists = await prisma.clientStatus.findFirst({
+    where: { code: data.status, active: true },
+  });
+  if (!statusExists) {
+    return { error: "Statusi i zgjedhur nuk është i vlefshëm." };
+  }
+
   const dup = await findDuplicateClient({
     clientIdNumber: data.clientIdNumber,
-    phone: data.phone,
-    email: data.email || null,
+    phone,
+    email,
   });
   if (dup) {
-    return {
-      error: `Dublikatë: klienti ekziston (${dup.clientIdNumber}).`,
-    };
+    return { error: `Dublikatë: klienti ekziston (${dup.clientIdNumber}).` };
   }
 
   let agentId = data.agentId || null;
@@ -89,14 +87,14 @@ export async function createClientAction(formData: FormData) {
       clientIdNumber: data.clientIdNumber,
       firstName: data.firstName,
       lastName: data.lastName,
-      phone: data.phone,
-      email: data.email || null,
-      company: data.company,
-      address: data.address,
-      country: data.country,
-      leadSource: data.leadSource,
+      phone,
+      email,
+      company: normalizeOptional(data.company ?? null),
+      address: normalizeOptional(data.address ?? null),
+      country: normalizeOptional(data.country ?? null),
+      leadSource: normalizeOptional(data.leadSource ?? null),
       status: data.status,
-      notes: data.notes,
+      notes: normalizeOptional(data.notes ?? null),
       agentId,
       managerId,
       creditBalance: data.creditBalance ?? 0,
@@ -120,90 +118,78 @@ export async function updateClientAction(clientId: string, formData: FormData) {
     return { error: "Nuk keni leje për të ndryshuar klientë." };
   }
 
-  const existing = await prisma.client.findUnique({ where: { id: clientId } });
-  if (!existing) return { error: "Klienti nuk u gjet." };
-
-  if (ctx.user.role === "AGENT" && existing.agentId !== ctx.user.id) {
-    return { error: "Nuk mund të ndryshoni këtë klient." };
-  }
-  if (ctx.user.role === "MANAGER") {
-    const inScope =
-      existing.managerId === ctx.user.id ||
-      (existing.agentId &&
-        (await prisma.user.findFirst({
-          where: { id: existing.agentId, managerId: ctx.user.id },
-        })));
-    if (!inScope) return { error: "Nuk mund të ndryshoni këtë klient." };
-  }
-
-  const parsed = clientSchema.safeParse(formToObject(formData));
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message || "Të dhëna të pavlefshme" };
-  }
-  const data = parsed.data;
-
-  const dup = await findDuplicateClient({
-    clientIdNumber: data.clientIdNumber,
-    phone: data.phone,
-    email: data.email || null,
-    excludeId: clientId,
-  });
-  if (dup) {
-    return { error: `Dublikatë me klientin ${dup.clientIdNumber}.` };
-  }
-
-  const changes: string[] = [];
-  const track: Array<[string, unknown, unknown]> = [
-    ["firstName", existing.firstName, data.firstName],
-    ["lastName", existing.lastName, data.lastName],
-    ["phone", existing.phone, data.phone],
-    ["email", existing.email, data.email],
-    ["company", existing.company, data.company],
-    ["status", existing.status, data.status],
-    ["country", existing.country, data.country],
-    ["agentId", existing.agentId, data.agentId],
-    ["managerId", existing.managerId, data.managerId],
-  ];
-  for (const [f, before, after] of track) {
-    if (String(before ?? "") !== String(after ?? "")) {
-      changes.push(`${f}: ${before ?? "—"} → ${after ?? "—"}`);
+  try {
+    const existing = await assertClientInScope(ctx, clientId);
+    const parsed = clientUpsertSchema.safeParse(formToObject(formData));
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0]?.message || "Të dhëna të pavlefshme" };
     }
-  }
+    const data = parsed.data;
+    const email = normalizeOptional(data.email ?? null);
+    const phone = normalizeOptional(data.phone ?? null);
 
-  await prisma.client.update({
-    where: { id: clientId },
-    data: {
+    const statusExists = await prisma.clientStatus.findFirst({
+      where: { code: data.status, active: true },
+    });
+    if (!statusExists) {
+      return { error: "Statusi i zgjedhur nuk është i vlefshëm." };
+    }
+
+    const dup = await findDuplicateClient({
       clientIdNumber: data.clientIdNumber,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      phone: data.phone,
-      email: data.email || null,
-      company: data.company,
-      address: data.address,
-      country: data.country,
-      leadSource: data.leadSource,
-      status: data.status,
-      notes: data.notes,
-      agentId: data.agentId || null,
-      managerId: data.managerId || null,
-      lastContactAt: new Date(),
-    },
-  });
+      phone,
+      email,
+      excludeId: clientId,
+    });
+    if (dup) {
+      return { error: `Dublikatë me klientin ${dup.clientIdNumber}.` };
+    }
 
-  await logActivity({
-    clientId,
-    actorId: ctx.realUser.id,
-    action: "CLIENT_UPDATED",
-    description:
-      changes.length > 0
-        ? `Ndryshime: ${changes.join("; ")}`
-        : "Klienti u përditësua",
-    metadata: { changes },
-  });
+    const statusChanged = existing.status !== data.status;
 
-  revalidatePath(`/clients/${clientId}`);
-  revalidatePath("/clients");
-  return { ok: true };
+    await prisma.client.update({
+      where: { id: clientId },
+      data: {
+        clientIdNumber: data.clientIdNumber,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phone,
+        email,
+        company: normalizeOptional(data.company ?? null),
+        address: normalizeOptional(data.address ?? null),
+        country: normalizeOptional(data.country ?? null),
+        leadSource: normalizeOptional(data.leadSource ?? null),
+        status: data.status,
+        notes: normalizeOptional(data.notes ?? null),
+        agentId: data.agentId || null,
+        managerId: data.managerId || null,
+        lastContactAt: new Date(),
+      },
+    });
+
+    if (statusChanged) {
+      await logActivity({
+        clientId,
+        actorId: ctx.realUser.id,
+        action: "STATUS_CHANGED",
+        description: `Statusi: ${existing.status} → ${data.status}`,
+        metadata: { from: existing.status, to: data.status },
+      });
+    } else {
+      await logActivity({
+        clientId,
+        actorId: ctx.realUser.id,
+        action: "CLIENT_UPDATED",
+        description: "Klienti u përditësua",
+      });
+    }
+
+    revalidatePath(`/clients/${clientId}`);
+    revalidatePath("/clients");
+    return { ok: true };
+  } catch (e) {
+    return { error: errMsg(e, "Gabim gjatë ruajtjes") };
+  }
 }
 
 export async function archiveClientAction(clientId: string) {
@@ -211,41 +197,69 @@ export async function archiveClientAction(clientId: string) {
   if (!ctx.user.permissions.clientDelete && ctx.user.role !== "ADMIN") {
     return { error: "Nuk keni leje për të arkivuar." };
   }
-
-  await prisma.client.update({
-    where: { id: clientId },
-    data: { archived: true, status: "ARCHIVED" },
-  });
-  await logActivity({
-    clientId,
-    actorId: ctx.realUser.id,
-    action: "CLIENT_ARCHIVED",
-    description: "Klienti u arkivua",
-  });
-  revalidatePath("/clients");
-  redirect("/clients");
+  try {
+    await assertClientInScope(ctx, clientId);
+    await prisma.client.update({
+      where: { id: clientId },
+      data: { archived: true, status: "ARCHIVED" },
+    });
+    await logActivity({
+      clientId,
+      actorId: ctx.realUser.id,
+      action: "CLIENT_ARCHIVED",
+      description: "Klienti u arkivua",
+    });
+    revalidatePath("/clients");
+    redirect("/clients");
+  } catch (e) {
+    return { error: errMsg(e, "Gabim") };
+  }
 }
 
-export async function deleteClientAction(clientId: string, confirm: string) {
+/** Soft-delete → recycle bin (not permanent) */
+export async function softDeleteClientAction(
+  clientId: string,
+  confirm: string,
+) {
   const ctx = await requireAuth();
-  if (!ctx.user.permissions.dataDelete && ctx.user.role !== "ADMIN") {
+  if (!ctx.user.permissions.clientDelete && ctx.user.role !== "ADMIN") {
     return { error: "Nuk keni leje për fshirje." };
   }
-  if (confirm !== "FSHIJ") {
-    return { error: 'Shkruani FSHIJ për konfirmim.' };
+  if (confirm !== "FSHIJ" && confirm !== "DELETE") {
+    return { error: "Shkruani FSHIJ ose DELETE për konfirmim." };
   }
 
-  const client = await prisma.client.findUnique({ where: { id: clientId } });
-  if (!client) return { error: "Klienti nuk u gjet." };
-
-  await prisma.client.delete({ where: { id: clientId } });
-  await logAudit({
-    actorId: ctx.realUser.id,
-    action: "CLIENT_DELETED",
-    details: `Fshi klientin ${client.clientIdNumber} (${client.firstName} ${client.lastName})`,
-  });
-  revalidatePath("/clients");
-  redirect("/clients");
+  try {
+    const client = await assertClientInScope(ctx, clientId);
+    const full = await prisma.client.findUnique({ where: { id: clientId } });
+    await prisma.client.update({
+      where: { id: clientId },
+      data: { deletedAt: new Date(), deletedById: ctx.realUser.id },
+    });
+    await recordSoftDelete({
+      entityType: "CLIENT",
+      entityId: clientId,
+      label: `${client.clientIdNumber} — ${client.firstName} ${client.lastName}`,
+      payload: full,
+      deletedById: ctx.realUser.id,
+    });
+    await logActivity({
+      clientId,
+      actorId: ctx.realUser.id,
+      action: "CLIENT_SOFT_DELETED",
+      description: "Klienti u zhvendos te Të fshira",
+    });
+    await logAudit({
+      actorId: ctx.realUser.id,
+      action: "CLIENT_SOFT_DELETED",
+      details: `Soft-delete ${client.clientIdNumber}`,
+    });
+    revalidatePath("/clients");
+    revalidatePath("/recycle-bin");
+    redirect("/clients");
+  } catch (e) {
+    return { error: errMsg(e, "Gabim") };
+  }
 }
 
 export async function adjustCreditsAction(
@@ -259,6 +273,9 @@ export async function adjustCreditsAction(
   if (Number.isNaN(amount) || amount === 0) {
     return { error: "Shuma e pavlefshme." };
   }
+  if (!reason) {
+    return { error: "Arsyeja / shënimi është i detyrueshëm." };
+  }
   if (amount > 0 && !ctx.user.permissions.creditsAdd && ctx.user.role !== "ADMIN") {
     return { error: "Nuk keni leje për të shtuar kredi." };
   }
@@ -266,25 +283,42 @@ export async function adjustCreditsAction(
     return { error: "Nuk keni leje për të hequr kredi." };
   }
 
-  const client = await prisma.client.findUnique({ where: { id: clientId } });
-  if (!client) return { error: "Klienti nuk u gjet." };
+  try {
+    const client = await assertClientInScope(ctx, clientId);
+    const previous = client.creditBalance;
+    const next = previous + amount;
 
-  const next = client.creditBalance + amount;
-  await prisma.client.update({
-    where: { id: clientId },
-    data: { creditBalance: next },
-  });
+    await prisma.$transaction([
+      prisma.client.update({
+        where: { id: clientId },
+        data: { creditBalance: next },
+      }),
+      prisma.creditLedger.create({
+        data: {
+          clientId,
+          actorId: ctx.realUser.id,
+          direction: amount > 0 ? "ADD" : "REMOVE",
+          amount: Math.abs(amount),
+          previousBalance: previous,
+          newBalance: next,
+          reason,
+        },
+      }),
+    ]);
 
-  await logActivity({
-    clientId,
-    actorId: ctx.realUser.id,
-    action: amount > 0 ? "CREDITS_ADDED" : "CREDITS_REMOVED",
-    description: `${amount > 0 ? "Shtuar" : "Hequr"} ${Math.abs(amount)} kredi. Bilanci: ${next}. ${reason}`,
-    metadata: { amount, previous: client.creditBalance, next, reason },
-  });
+    await logActivity({
+      clientId,
+      actorId: ctx.realUser.id,
+      action: amount > 0 ? "CREDITS_ADDED" : "CREDITS_REMOVED",
+      description: `${amount > 0 ? "Shtuar" : "Hequr"} ${Math.abs(amount)} kredi. ${previous} → ${next}. ${reason}`,
+      metadata: { amount, previous, next, reason },
+    });
 
-  revalidatePath(`/clients/${clientId}`);
-  return { ok: true };
+    revalidatePath(`/clients/${clientId}`);
+    return { ok: true };
+  } catch (e) {
+    return { error: errMsg(e, "Gabim") };
+  }
 }
 
 export async function addCommentAction(clientId: string, formData: FormData) {
@@ -295,22 +329,26 @@ export async function addCommentAction(clientId: string, formData: FormData) {
   const body = String(formData.get("body") || "").trim();
   if (!body) return { error: "Komenti është bosh." };
 
-  await prisma.comment.create({
-    data: { clientId, authorId: ctx.user.id, body },
-  });
-  await logActivity({
-    clientId,
-    actorId: ctx.realUser.id,
-    action: "COMMENT_ADDED",
-    description: `Koment: ${body.slice(0, 120)}`,
-  });
-  await prisma.client.update({
-    where: { id: clientId },
-    data: { lastContactAt: new Date() },
-  });
-
-  revalidatePath(`/clients/${clientId}`);
-  return { ok: true };
+  try {
+    await assertClientInScope(ctx, clientId);
+    await prisma.comment.create({
+      data: { clientId, authorId: ctx.user.id, body },
+    });
+    await logActivity({
+      clientId,
+      actorId: ctx.realUser.id,
+      action: "COMMENT_ADDED",
+      description: `Koment: ${body.slice(0, 120)}`,
+    });
+    await prisma.client.update({
+      where: { id: clientId },
+      data: { lastContactAt: new Date() },
+    });
+    revalidatePath(`/clients/${clientId}`);
+    return { ok: true };
+  } catch (e) {
+    return { error: errMsg(e, "Gabim") };
+  }
 }
 
 export async function deleteCommentAction(commentId: string, clientId: string) {
@@ -318,15 +356,36 @@ export async function deleteCommentAction(commentId: string, clientId: string) {
   if (!ctx.user.permissions.commentsDelete && ctx.user.role !== "ADMIN") {
     return { error: "Nuk keni leje për të fshirë komente." };
   }
-  await prisma.comment.delete({ where: { id: commentId } });
-  await logActivity({
-    clientId,
-    actorId: ctx.realUser.id,
-    action: "COMMENT_DELETED",
-    description: "Komenti u fshi",
-  });
-  revalidatePath(`/clients/${clientId}`);
-  return { ok: true };
+  try {
+    await assertClientInScope(ctx, clientId);
+    const comment = await prisma.comment.findFirst({
+      where: { id: commentId, clientId, deletedAt: null },
+    });
+    if (!comment) return { error: "Komenti nuk u gjet." };
+
+    await prisma.comment.update({
+      where: { id: commentId },
+      data: { deletedAt: new Date(), deletedById: ctx.realUser.id },
+    });
+    await recordSoftDelete({
+      entityType: "COMMENT",
+      entityId: commentId,
+      label: `Koment për klient ${clientId}`,
+      payload: comment,
+      deletedById: ctx.realUser.id,
+    });
+    await logActivity({
+      clientId,
+      actorId: ctx.realUser.id,
+      action: "COMMENT_DELETED",
+      description: "Komenti u zhvendos te Të fshira",
+    });
+    revalidatePath(`/clients/${clientId}`);
+    revalidatePath("/recycle-bin");
+    return { ok: true };
+  } catch (e) {
+    return { error: errMsg(e, "Gabim") };
+  }
 }
 
 export async function assignClientAction(formData: FormData) {
@@ -340,23 +399,23 @@ export async function assignClientAction(formData: FormData) {
   const agentId = String(formData.get("agentId") || "") || null;
   const managerId = String(formData.get("managerId") || "") || null;
 
-  const client = await prisma.client.findUnique({ where: { id: clientId } });
-  if (!client) return { error: "Klienti nuk u gjet." };
-
-  await prisma.client.update({
-    where: { id: clientId },
-    data: { agentId, managerId },
-  });
-
-  await logActivity({
-    clientId,
-    actorId: ctx.realUser.id,
-    action: "CLIENT_ASSIGNED",
-    description: `Caktim: agjent=${agentId ?? "—"}, menaxher=${managerId ?? "—"}`,
-  });
-
-  revalidatePath(`/clients/${clientId}`);
-  revalidatePath("/clients");
-  revalidatePath("/team");
-  return { ok: true };
+  try {
+    await assertClientInScope(ctx, clientId);
+    await prisma.client.update({
+      where: { id: clientId },
+      data: { agentId, managerId },
+    });
+    await logActivity({
+      clientId,
+      actorId: ctx.realUser.id,
+      action: "CLIENT_ASSIGNED",
+      description: `Caktim: agjent=${agentId ?? "—"}, menaxher=${managerId ?? "—"}`,
+    });
+    revalidatePath(`/clients/${clientId}`);
+    revalidatePath("/clients");
+    revalidatePath("/team");
+    return { ok: true };
+  } catch (e) {
+    return { error: errMsg(e, "Gabim") };
+  }
 }

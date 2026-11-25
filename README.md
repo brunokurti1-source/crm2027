@@ -139,3 +139,24 @@ src/app/api/v1/  external API
 src/app/actions/ server actions
 src/lib/         auth, permissions, db, audit
 ```
+
+## Languages
+
+The UI supports Albanian, English, Italian, Spanish, and German via the language selector in the top bar (stored in a cookie).
+
+## Backup & restore (admin)
+
+1. Sign in as administrator → **Kopje rezervë**.
+2. Download the JSON backup (passwords are never included).
+3. Store the file offline / encrypted — not in a public folder.
+4. To restore locally for disaster recovery, stop the app, replace or migrate data using a controlled script against a private copy of the backup, then restart. Do not expose restore endpoints publicly.
+
+## Soft delete
+
+Deleted clients/comments move to **Të fshira** (admin). Restore or permanently purge from there.
+
+## New permissions
+
+- `creditHistoryView` — view credit ledger (agents need this granted)
+- `dataExport` — export clients CSV/Excel
+- `manageStatuses` — manage client status list

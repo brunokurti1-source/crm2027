@@ -1,5 +1,7 @@
 import { requireAuth } from "@/lib/auth";
 import { AppShell } from "@/components/app-shell";
+import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { prisma } from "@/lib/db";
 
 export default async function AuthenticatedLayout({
   children,
@@ -7,5 +9,20 @@ export default async function AuthenticatedLayout({
   children: React.ReactNode;
 }) {
   const ctx = await requireAuth();
-  return <AppShell ctx={ctx}>{children}</AppShell>;
+  const { locale } = await getDictionary();
+
+  let unreadCount = 0;
+  try {
+    unreadCount = await prisma.notification.count({
+      where: { userId: ctx.user.id, readAt: null },
+    });
+  } catch {
+    unreadCount = 0;
+  }
+
+  return (
+    <AppShell ctx={ctx} locale={locale} unreadCount={unreadCount}>
+      {children}
+    </AppShell>
+  );
 }
